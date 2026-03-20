@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   LineChart,
   Line,
-  BarChart,      ← ADDED
-  Bar,           ← ADDED
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -72,9 +72,12 @@ export default function MainDashboard() {
   const lastSevenDates = useMemo(() => getLastSevenDates(), []);
   const defaultDate = useMemo(() => lastSevenDates[lastSevenDates.length - 1], [lastSevenDates]);
   
-  if (!selectedDate && defaultDate) {
-    setSelectedDate(defaultDate);
-  }
+  // Set default date on mount
+  useEffect(() => {
+    if (!selectedDate && defaultDate) {
+      setSelectedDate(defaultDate);
+    }
+  }, [defaultDate, selectedDate]);
 
   const uniqueSubjects = useMemo(() => {
     const subjects = [...new Set(allChannels.map(ch => ch.subject))];
