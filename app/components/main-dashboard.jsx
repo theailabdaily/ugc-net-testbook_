@@ -4,6 +4,8 @@ import React, { useState, useMemo } from 'react';
 import {
   LineChart,
   Line,
+  BarChart,      ← ADDED
+  Bar,           ← ADDED
   XAxis,
   YAxis,
   CartesianGrid,
