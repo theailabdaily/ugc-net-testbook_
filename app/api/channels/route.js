@@ -1,11 +1,5 @@
-const express = require('express');
-const path = require('path');
-const https = require('https');
+import { NextResponse } from 'next/server';
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Your 25 Telegram channels
 const CHANNELS = [
   { username: 'testbook_ugcnet', label: 'UGC NET Common', group: 'Core' },
   { username: 'pradyumansir_testbook', label: 'Political Science - Pradyuman Sir', group: 'Core' },
@@ -34,81 +28,63 @@ const CHANNELS = [
   { username: 'testbook_gauravsir', label: 'Gaurav Sir', group: 'Core' },
 ];
 
-// Helper: fetch from Telegram Bot API
-function telegramRequest(method, params) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const query = new URLSearchParams(params).toString();
-  const url = `https://api.telegram.org/bot${token}/${method}?${query}`;
-
-  return new Promise((resolve, reject) => {
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(e); }
-      });
-    }).on('error', reject);
-  });
+async function fetchChannelData(channel, token) {
+  const base = `https://api.telegram.org/bot${token}`;
+  try {
+    const [chatRes, countRes] = await Promise.all([
+      fetch(`${base}/getChat?chat_id=@${channel.username}`),
+      fetch(`${base}/getChatMemberCount?chat_id=@${channel.username}`)
+    ]);
+    const chatData = await chatRes.json();
+    const countData = await countRes.json();
+    return {
+      username: channel.username,
+      label: channel.label,
+      group: channel.group,
+      title: chatData.result?.title || channel.label,
+      description: chatData.result?.description || '',
+      subscribers: countData.result || 0,
+      error: null
+    };
+  } catch (err) {
+    return {
+      username: channel.username,
+      label: channel.label,
+      group: channel.group,
+      title: channel.label,
+      description: '',
+      subscribers: 0,
+      error: err.message
+    };
+  }
 }
 
-// API endpoint: GET /api/channels
-app.get('/api/channels', async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-
+export async function GET() {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    return NextResponse.json(
+      { success: false, error: 'TELEGRAM_BOT_TOKEN not set' },
+      { status: 500 }
+    );
+  }
   try {
     const results = await Promise.allSettled(
-      CHANNELS.map(async (ch) => {
-        try {
-          const [chatInfo, memberCount] = await Promise.all([
-            telegramRequest('getChat', { chat_id: `@${ch.username}` }),
-            telegramRequest('getChatMemberCount', { chat_id: `@${ch.username}` })
-          ]);
-
-          return {
-            username: ch.username,
-            label: ch.label,
-            group: ch.group,
-            title: chatInfo.result?.title || ch.label,
-            subscribers: memberCount.result || 0,
-            description: chatInfo.result?.description || '',
-            error: null
-          };
-        } catch (err) {
-          return {
-            username: ch.username,
-            label: ch.label,
-            group: ch.group,
-            title: ch.label,
-            subscribers: 0,
-            description: '',
-            error: err.message
-          };
-        }
-      })
+      CHANNELS.map(ch => fetchChannelData(ch, token))
     );
-
-    const channels = results.map(r => r.value || r.reason);
+    const channels = results.map(r =>
+      r.status === 'fulfilled' ? r.value : { subscribers: 0, error: String(r.reason) }
+    );
     const totalSubscribers = channels.reduce((sum, ch) => sum + (ch.subscribers || 0), 0);
-
-    res.json({
+    return NextResponse.json({
       success: true,
       fetchedAt: new Date().toISOString(),
       totalSubscribers,
       channels
     });
-
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500 }
+    );
   }
-});
-
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+}
