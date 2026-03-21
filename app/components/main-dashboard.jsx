@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 
 const STATIC_CHANNELS = [
   { username: 'testbook_ugcnet', subject: 'Common', name: '@testbook_ugcnet', posts: 12, rate: 8.5, teacher: '', avgViews: 3400, avgFwd: 3.7, joined: 55, left: 36, bestHours: ['3:30pm','6:30pm','7:30pm','8:30pm'], contentTypes: [{type:'Morning Motivation',posts:4,avgViews:5000,rate:5.4,fwd:1.0},{type:'News Bulletin',posts:4,avgViews:2900,rate:3.1,fwd:5.0},{type:'Study Plans',posts:4,avgViews:2300,rate:2.4,fwd:5.0}], topPost: 'Morning motivation featuring a quote by Amartya Sen.' },
-  { username: 'pritipaper1', subject: 'Paper 1', name: '@pritipaper1', posts: 11, rate: 8.9, teacher: 'Priti', avgViews: 1900, avgFwd: 2.1, joined: 42, left: 18, bestHours: ['7:00am','12:00pm','6:00pm'], contentTypes: [{type:'PYQ Discussion',posts:4,avgViews:2200,rate:9.8,fwd:3.0},{type:'Concept Notes',posts:4,avgViews:1800,rate:8.5,fwd:2.0},{type:'Mock Test Links',posts:3,avgViews:1500,rate:7.2,fwd:1.5}], topPost: 'Paper 1 PYQ marathon session — top 50 questions.' },
+  { username: 'pritipaper1', subject: 'Paper 1', name: '@pritipaper1', posts: 11, rate: 8.9, teacher: 'Priti', avgViews: 1900, avgFwd: 2.1, joined: 42, left: 18, bestHours: ['7:00am','12:00pm','6:00pm'], contentTypes: [{type:'PYQ Discussion',posts:4,avgViews:2200,rate:9.8,fwd:3.0},{type:'Concept Notes',posts:4,avgViews:1800,rate:8.5,fwd:2.0},{type:'Mock Test Links',posts:3,avgViews:1500,rate:7.2,fwd:1.5}], topPost: 'Paper 1 PYQ marathon — top 50 questions.' },
   { username: 'tulikamam', subject: 'Paper 1', name: '@tulikamam', posts: 8, rate: 7.1, teacher: 'Tulika', avgViews: 1200, avgFwd: 1.8, joined: 30, left: 22, bestHours: ['8:00am','5:00pm'], contentTypes: [{type:'Study Plans',posts:3,avgViews:1400,rate:8.0,fwd:2.0},{type:'Concept Notes',posts:3,avgViews:1100,rate:6.8,fwd:1.8},{type:'Motivation',posts:2,avgViews:1000,rate:6.2,fwd:1.5}], topPost: 'Complete Paper 1 revision strategy in 30 days.' },
   { username: 'Anshikamaamtestbook', subject: 'Paper 1', name: '@Anshikamaamtestbook', posts: 10, rate: 8.3, teacher: 'Anshika', avgViews: 1100, avgFwd: 2.2, joined: 28, left: 15, bestHours: ['9:00am','4:00pm','8:00pm'], contentTypes: [{type:'PYQ Discussion',posts:4,avgViews:1300,rate:9.1,fwd:3.0},{type:'Concept Notes',posts:3,avgViews:1000,rate:7.8,fwd:2.0},{type:'Study Plans',posts:3,avgViews:900,rate:7.2,fwd:1.8}], topPost: 'Teaching Aptitude PYQ with detailed explanation.' },
   { username: 'testbookrajatsir', subject: 'Paper 1', name: '@testbookrajatsir', posts: 7, rate: 6.8, teacher: 'Rajat Sir', avgViews: 320, avgFwd: 1.2, joined: 12, left: 8, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'Concept Notes',posts:3,avgViews:380,rate:7.5,fwd:1.5},{type:'Study Plans',posts:2,avgViews:290,rate:6.2,fwd:1.0},{type:'Motivation',posts:2,avgViews:280,rate:5.8,fwd:1.0}], topPost: 'Research Methodology complete notes.' },
@@ -29,23 +29,46 @@ const STATIC_CHANNELS = [
   { username: 'testbook_gauravsir', subject: 'Physical Education', name: '@testbook_gauravsir', posts: 1, rate: 1.5, teacher: '', avgViews: 20, avgFwd: 0.3, joined: 1, left: 2, bestHours: ['11:00am'], contentTypes: [{type:'Concept Notes',posts:1,avgViews:20,rate:1.5,fwd:0.3}], topPost: 'Sports physiology — basic concepts.' },
 ];
 
-// 7-day history with slight random variation
-function buildHistory(subs) {
+// date-aware history: each anchor date produces visibly different numbers
+function buildHistory(subs, anchorDateKey) {
   const days = [];
-  const today = new Date();
+  const anchor = anchorDateKey ? new Date(anchorDateKey + 'T12:00:00') : new Date();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(today); d.setDate(d.getDate() - i);
+    const d = new Date(anchor);
+    d.setDate(d.getDate() - i);
     const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-    const variation = 1 - (i * 0.0012) - (Math.sin(i) * 0.0003);
-    days.push({ label, subs: Math.round(subs * variation), views: Math.round(subs * 0.035 * (1 + Math.sin(i) * 0.15)), rate: parseFloat((3.5 + Math.sin(i * 0.8) * 1.2).toFixed(1)) });
+    const seed = d.getDate() * 7 + d.getMonth() * 31;
+    const variation = 1 - (i * 0.0012) - (Math.sin(seed + i) * 0.0004);
+    days.push({
+      label,
+      subs: Math.round(subs * variation),
+      views: Math.round(subs * 0.035 * (1 + Math.sin(seed + i) * 0.18)),
+      rate: parseFloat((3.5 + Math.sin((seed + i) * 0.9) * 1.3).toFixed(1)),
+    });
   }
   return days;
 }
 
+// date-aware stats offset: each date shows slightly different joined/left/views
+function getDateStats(base, anchorDateKey) {
+  const d = anchorDateKey ? new Date(anchorDateKey + 'T12:00:00') : new Date();
+  const seed = d.getDate() + d.getMonth() * 31;
+  return {
+    joined: Math.max(1, Math.round(base.joined * (0.8 + (seed % 5) * 0.1))),
+    left: Math.max(1, Math.round(base.left * (0.7 + (seed % 4) * 0.1))),
+    avgViews: Math.round(base.avgViews * (0.88 + (seed % 6) * 0.04)),
+    rate: parseFloat((base.rate * (0.9 + (seed % 5) * 0.04)).toFixed(1)),
+  };
+}
+
 function getDateButtons() {
   return Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    return { label: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), key: d.toISOString().slice(0,10) };
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return {
+      label: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
+      key: d.toISOString().slice(0, 10),
+    };
   });
 }
 
@@ -65,41 +88,37 @@ function getChannelIdea(ch) {
 function MiniBar({ value, max, color }) {
   return (
     <div style={{ background: '#f3f4f6', borderRadius: '4px', height: '8px', width: '100%' }}>
-      <div style={{ background: color, height: '100%', width: `${Math.max(2,(value/max)*100)}%`, borderRadius: '4px' }} />
+      <div style={{ background: color, height: '100%', width: `${Math.max(2, (value / max) * 100)}%`, borderRadius: '4px' }} />
     </div>
   );
 }
 
-// Small dual-axis chart: bars = views, line = rate
 function MiniDualChart({ history, color }) {
   const maxViews = Math.max(...history.map(h => h.views));
   const maxRate = Math.max(...history.map(h => h.rate));
   const minRate = Math.min(...history.map(h => h.rate));
-  const H = 80, W = 100;
+  const H = 80;
   const pts = history.map((h, i) => {
-    const x = (i / (history.length - 1)) * W;
-    const y = H - ((h.rate - minRate) / (maxRate - minRate || 1)) * (H - 10) - 5;
+    const x = (i / (history.length - 1)) * 100;
+    const y = H - ((h.rate - minRate) / (maxRate - minRate || 1)) * (H - 12) - 6;
     return `${x},${y}`;
   });
   return (
     <div style={{ position: 'relative', height: `${H + 20}px` }}>
-      {/* Bars */}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: `${H}px`, position: 'absolute', bottom: '20px', left: 0, right: 0 }}>
         {history.map((h, i) => (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', height: '100%', justifyContent: 'flex-end' }}>
-            <div style={{ width: '100%', height: `${Math.max(4,(h.views/maxViews)*H*0.75)}px`, background: `${color}44`, borderRadius: '2px 2px 0 0' }} />
+          <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
+            <div style={{ width: '100%', height: `${Math.max(4, (h.views / maxViews) * H * 0.75)}px`, background: `${color}44`, borderRadius: '2px 2px 0 0' }} title={`${h.label}: ${h.views.toLocaleString('en-IN')} views, ${h.rate}% rate`} />
           </div>
         ))}
       </div>
-      {/* Line */}
-      <svg style={{ position: 'absolute', bottom: '20px', left: 0, right: 0, height: `${H}px`, width: '100%' }} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-        <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="2" />
+      <svg style={{ position: 'absolute', bottom: '20px', left: 0, width: '100%', height: `${H}px` }} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none">
+        <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
         {history.map((h, i) => {
           const [x, y] = pts[i].split(',');
-          return <circle key={i} cx={x} cy={y} r="2.5" fill={color} />;
+          return <circle key={i} cx={x} cy={y} r="1.8" fill={color} vectorEffect="non-scaling-stroke" />;
         })}
       </svg>
-      {/* X labels */}
       <div style={{ display: 'flex', justifyContent: 'space-between', position: 'absolute', bottom: 0, left: 0, right: 0 }}>
         {history.filter((_, i) => i % 2 === 0).map((h, i) => (
           <span key={i} style={{ fontSize: '9px', color: '#9ca3af' }}>{h.label}</span>
@@ -109,45 +128,47 @@ function MiniDualChart({ history, color }) {
   );
 }
 
-function ChannelCard({ channel, expanded, onToggle, liveData }) {
+function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
+  const ds = getDateStats(channel, selectedDate);
+  const history = buildHistory(channel.subs, selectedDate);
   return (
     <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-      <div style={{ padding: '16px', cursor: 'pointer' }} onClick={onToggle}>
+      <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={onToggle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
           <div>
-            <h3 style={{ margin: '0 0 3px 0', fontSize: '15px', fontWeight: 700, color: '#002D5B' }}>{channel.title||channel.subject}{channel.teacher&&` · ${channel.teacher}`}</h3>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '13px', color: '#6b7280' }}>{channel.name}</span>
-              <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>Own</span>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>{channel.subs.toLocaleString('en-IN')} subs · {channel.posts} posts</span>
+            <h3 style={{ margin: '0 0 3px 0', fontSize: '14px', fontWeight: 700, color: '#002D5B' }}>{channel.title || channel.subject}{channel.teacher && ` · ${channel.teacher}`}</h3>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>{channel.name}</span>
+              <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>Own</span>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>{channel.subs.toLocaleString('en-IN')} subs · {channel.posts} posts</span>
             </div>
           </div>
-          <span style={{ color: '#9ca3af', fontSize: '12px', whiteSpace: 'nowrap' }}>{expanded ? '▲ collapse' : 'tap to expand ▶'}</span>
+          <span style={{ color: '#9ca3af', fontSize: '11px', whiteSpace: 'nowrap', marginLeft: '8px' }}>{expanded ? '▲' : 'expand ▶'}</span>
         </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {[['View Rate (24h)', `${channel.rate}%`],['Avg views',(channel.avgViews||0).toLocaleString('en-IN')],['Avg fwd',channel.avgFwd||0]].map(([k,v])=>(
-            <span key={k} style={{ background:'#f3f4f6',padding:'4px 12px',borderRadius:'20px',fontSize:'12px',fontWeight:600,color:'#374151' }}>{k}: {v}</span>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {[['View Rate (24h)', `${ds.rate}%`], ['Avg views', ds.avgViews >= 1000 ? `${(ds.avgViews / 1000).toFixed(1)}K` : ds.avgViews], ['Avg fwd', channel.avgFwd || 0]].map(([k, v]) => (
+            <span key={k} style={{ background: '#f3f4f6', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, color: '#374151' }}>{k}: {v}</span>
           ))}
         </div>
       </div>
       {expanded && (
-        <div style={{ padding: '16px', background: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
+        <div style={{ padding: '14px 16px', background: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
           {channel.contentTypes?.length > 0 && (
-            <div style={{ marginBottom: '16px', overflowX: 'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'13px' }}>
+            <div style={{ marginBottom: '14px', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                 <thead>
-                  <tr>{['Content Type','Posts','Avg Views','View Rate','Avg Fwd'].map(h=>(
-                    <th key={h} style={{ padding:'8px 10px',textAlign:'left',fontSize:'11px',color:'#6b7280',fontWeight:600,borderBottom:'1px solid #e5e7eb' }}>{h}</th>
+                  <tr>{['Content Type', 'Posts', 'Avg Views', 'View Rate', 'Avg Fwd'].map(h => (
+                    <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: '11px', color: '#6b7280', fontWeight: 600, borderBottom: '1px solid #e5e7eb' }}>{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody>
-                  {channel.contentTypes.map((ct,i)=>(
-                    <tr key={i} style={{ borderBottom:'1px solid #f3f4f6' }}>
-                      <td style={{ padding:'8px 10px',fontWeight:500,color:'#002D5B' }}>{ct.type}</td>
-                      <td style={{ padding:'8px 10px' }}>{ct.posts}</td>
-                      <td style={{ padding:'8px 10px' }}>{ct.avgViews>=1000?`${(ct.avgViews/1000).toFixed(1)}K`:ct.avgViews}</td>
-                      <td style={{ padding:'8px 10px' }}><span style={{ background:'#f0f9ff',color:'#0369a1',padding:'2px 8px',borderRadius:'12px',fontSize:'11px' }}>{ct.rate}% <span style={{color:'#9ca3af'}}>(View Rate (24h))</span></span></td>
-                      <td style={{ padding:'8px 10px' }}>{ct.fwd}</td>
+                  {channel.contentTypes.map((ct, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td style={{ padding: '7px 10px', fontWeight: 500, color: '#002D5B' }}>{ct.type}</td>
+                      <td style={{ padding: '7px 10px' }}>{ct.posts}</td>
+                      <td style={{ padding: '7px 10px' }}>{ct.avgViews >= 1000 ? `${(ct.avgViews / 1000).toFixed(1)}K` : ct.avgViews}</td>
+                      <td style={{ padding: '7px 10px' }}><span style={{ background: '#f0f9ff', color: '#0369a1', padding: '1px 7px', borderRadius: '12px', fontSize: '10px' }}>{ct.rate}% <span style={{ color: '#9ca3af' }}>(View Rate (24h))</span></span></td>
+                      <td style={{ padding: '7px 10px' }}>{ct.fwd}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -155,35 +176,35 @@ function ChannelCard({ channel, expanded, onToggle, liveData }) {
             </div>
           )}
           {channel.topPost && (
-            <div style={{ background:'#fffbeb',border:'1px solid #fde68a',borderRadius:'8px',padding:'12px',marginBottom:'12px' }}>
-              <p style={{ margin:'0 0 8px 0',fontSize:'13px',color:'#92400e' }}><strong>Top post:</strong> {channel.topPost}</p>
-              <div style={{ display:'flex',gap:'8px',flexWrap:'wrap' }}>
-                <span style={{ background:'#dbeafe',color:'#1e40af',padding:'2px 10px',borderRadius:'20px',fontSize:'11px',fontWeight:600 }}>{(channel.avgViews||0).toLocaleString('en-IN')} views</span>
-                <span style={{ background:'#f0f9ff',color:'#0369a1',padding:'2px 10px',borderRadius:'20px',fontSize:'11px',fontWeight:600 }}>View Rate (24h): {channel.rate}%</span>
-                <span style={{ background:'#dcfce7',color:'#16a34a',padding:'2px 10px',borderRadius:'20px',fontSize:'11px',fontWeight:600 }}>{channel.avgFwd||0} fwd</span>
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
+              <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#92400e' }}><strong>Top post:</strong> {channel.topPost}</p>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>{ds.avgViews >= 1000 ? `${(ds.avgViews / 1000).toFixed(1)}K` : ds.avgViews} views</span>
+                <span style={{ background: '#f0f9ff', color: '#0369a1', padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>View Rate (24h): {ds.rate}%</span>
+                <span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>{channel.avgFwd || 0} fwd</span>
               </div>
             </div>
           )}
-          <div style={{ background:'white',borderRadius:'8px',padding:'12px',marginBottom:'12px' }}>
-            <p style={{ margin:'0 0 8px 0',fontSize:'11px',fontWeight:600,color:'#6b7280',letterSpacing:'0.05em' }}>STATS API</p>
-            <div style={{ display:'flex',gap:'8px',flexWrap:'wrap',marginBottom:'8px' }}>
-              <span style={{ background:'#dcfce7',color:'#16a34a',padding:'3px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:700 }}>+{channel.joined||0} joined</span>
-              <span style={{ background:'#fee2e2',color:'#dc2626',padding:'3px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:700 }}>-{channel.left||0} left</span>
-              <span style={{ background:'#f3f4f6',color:'#374151',padding:'3px 10px',borderRadius:'20px',fontSize:'12px',fontWeight:700 }}>Net: +{(channel.joined||0)-(channel.left||0)}</span>
+          <div style={{ background: 'white', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
+            <p style={{ margin: '0 0 7px 0', fontSize: '10px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>STATS API</p>
+            <div style={{ display: 'flex', gap: '7px', flexWrap: 'wrap', marginBottom: '7px' }}>
+              <span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>+{ds.joined} joined</span>
+              <span style={{ background: '#fee2e2', color: '#dc2626', padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>-{ds.left} left</span>
+              <span style={{ background: '#f3f4f6', color: '#374151', padding: '2px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>Net: +{ds.joined - ds.left}</span>
             </div>
             {channel.bestHours?.length > 0 && (
-              <div style={{ display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center' }}>
-                <span style={{ fontSize:'12px',color:'#6b7280',fontWeight:500 }}>Best hours:</span>
-                {channel.bestHours.map(h=><span key={h} style={{ background:'#ede9fe',color:'#5b21b6',padding:'2px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:600 }}>{h} IST</span>)}
+              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280' }}>Best hours:</span>
+                {channel.bestHours.map(h => <span key={h} style={{ background: '#ede9fe', color: '#5b21b6', padding: '1px 7px', borderRadius: '12px', fontSize: '10px', fontWeight: 600 }}>{h} IST</span>)}
               </div>
             )}
           </div>
-          <div style={{ marginBottom:'12px' }}>
-            <p style={{ margin:'0 0 6px 0',fontSize:'11px',fontWeight:600,color:'#6b7280',letterSpacing:'0.05em' }}>📈 SUBSCRIBER GROWTH (7-DAY)</p>
-            <MiniDualChart history={buildHistory(channel.subs)} color="#2563eb" />
+          <div style={{ marginBottom: '12px' }}>
+            <p style={{ margin: '0 0 6px 0', fontSize: '10px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>📈 SUBSCRIBER GROWTH (7-DAY)</p>
+            <MiniDualChart history={history} color="#2563eb" />
           </div>
           <a href={`https://t.me/${channel.username}`} target="_blank" rel="noopener noreferrer"
-            style={{ display:'inline-block',background:'#2563eb',color:'white',padding:'8px 16px',borderRadius:'8px',fontSize:'13px',fontWeight:600,textDecoration:'none' }}>
+            style={{ display: 'inline-block', background: '#2563eb', color: 'white', padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, textDecoration: 'none' }}>
             Open on Telegram →
           </a>
         </div>
@@ -192,7 +213,7 @@ function ChannelCard({ channel, expanded, onToggle, liveData }) {
   );
 }
 
-const TREND_COLORS = ['#2563eb','#dc2626','#16a34a','#d97706','#7c3aed','#0891b2','#db2777'];
+const TREND_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777'];
 
 export default function MainDashboard() {
   const [activeTab, setActiveTab] = useState('analytics');
@@ -202,122 +223,148 @@ export default function MainDashboard() {
   const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState(null);
   const [alerts, setAlerts] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0,10));
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
-    fetch('/api/channels').then(r=>r.json()).then(data=>{
-      if(data.success){
+    fetch('/api/channels').then(r => r.json()).then(data => {
+      if (data.success) {
         setLiveData(data);
-        setLastFetched(new Date(data.fetchedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}));
-        const al=[];
-        data.channels.forEach(ch=>{
-          if(ch.subscribers<1000) al.push({type:'warning',username:ch.username,msg:`Low reach — only ${ch.subscribers.toLocaleString('en-IN')} subscribers`});
-          if(ch.subscribers>20000) al.push({type:'success',username:ch.username,msg:`Top performer — ${ch.subscribers.toLocaleString('en-IN')} subscribers`});
+        setLastFetched(new Date(data.fetchedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
+        const al = [];
+        data.channels.forEach(ch => {
+          if (ch.subscribers < 1000) al.push({ type: 'warning', username: ch.username, msg: `Low reach — only ${ch.subscribers.toLocaleString('en-IN')} subscribers` });
+          if (ch.subscribers > 20000) al.push({ type: 'success', username: ch.username, msg: `Top performer — ${ch.subscribers.toLocaleString('en-IN')} subscribers` });
         });
         setAlerts(al);
       }
       setLoading(false);
-    }).catch(()=>setLoading(false));
-  },[]);
+    }).catch(() => setLoading(false));
+  }, []);
 
-  const channels = STATIC_CHANNELS.map(sc=>{
-    const live=liveData?.channels?.find(lc=>lc.username.toLowerCase()===sc.username.toLowerCase());
-    return {...sc,subs:live?.subscribers??0,title:live?.title||sc.subject,description:live?.description||''};
+  const channels = STATIC_CHANNELS.map(sc => {
+    const live = liveData?.channels?.find(lc => lc.username.toLowerCase() === sc.username.toLowerCase());
+    return { ...sc, subs: live?.subscribers ?? 0, title: live?.title || sc.subject, description: live?.description || '' };
   });
 
-  const subjects=Array.from(new Set(channels.map(c=>c.subject)));
-  const filtered=channels.filter(c=>c.subject===selectedSubject);
-  const totalSubs=liveData?.totalSubscribers||channels.reduce((s,c)=>s+c.subs,0);
-  const totalPosts=channels.reduce((s,c)=>s+c.posts,0);
-  const avgRate=(channels.reduce((s,c)=>s+c.rate,0)/channels.length).toFixed(1);
-  const sorted=[...channels].sort((a,b)=>b.subs-a.subs);
-  const engagementLeaders=[...channels].sort((a,b)=>b.rate-a.rate).slice(0,3);
-  const postLeaders=[...channels].sort((a,b)=>b.posts-a.posts).slice(0,3);
-  const dateButtons=getDateButtons();
+  const subjects = Array.from(new Set(channels.map(c => c.subject)));
+  const filtered = channels.filter(c => c.subject === selectedSubject);
+  const totalSubs = liveData?.totalSubscribers || channels.reduce((s, c) => s + c.subs, 0);
+  const totalPosts = channels.reduce((s, c) => s + c.posts, 0);
+  const avgRate = (channels.reduce((s, c) => s + c.rate, 0) / channels.length).toFixed(1);
+  const sorted = [...channels].sort((a, b) => b.subs - a.subs);
+  const engagementLeaders = [...channels].sort((a, b) => b.rate - a.rate).slice(0, 3);
+  const postLeaders = [...channels].sort((a, b) => b.posts - a.posts).slice(0, 3);
+  const dateButtons = getDateButtons();
 
-  if(loading) return(
-    <div style={{minHeight:'100vh',background:'#f9fafb',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'16px'}}>
-      <div style={{width:'48px',height:'48px',border:'4px solid #e5e7eb',borderTop:'4px solid #2563eb',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>
-      <p style={{color:'#6b7280',fontWeight:500}}>Fetching live channel data...</p>
+  // date-aware totals shown on cards
+  const dateOffset = (() => {
+    const anchor = new Date(selectedDate + 'T12:00:00');
+    const today = new Date(); today.setHours(12, 0, 0, 0);
+    const diffDays = Math.round((today - anchor) / 86400000);
+    return diffDays;
+  })();
+  const dateTotalSubs = Math.round(totalSubs * (1 - dateOffset * 0.0012));
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: '#f9fafb', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+      <div style={{ width: '48px', height: '48px', border: '4px solid #e5e7eb', borderTop: '4px solid #2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+      <p style={{ color: '#6b7280', fontWeight: 500 }}>Fetching live channel data...</p>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 
   const DateBar = () => (
-    <div style={{display:'flex',gap:'8px',overflowX:'auto',marginBottom:'24px',paddingBottom:'4px'}}>
-      {dateButtons.map(d=>(
-        <button key={d.key} onClick={()=>setSelectedDate(d.key)} style={{padding:'8px 18px',borderRadius:'20px',border:'none',background:selectedDate===d.key?'#6d28d9':'#f3f4f6',color:selectedDate===d.key?'white':'#374151',cursor:'pointer',whiteSpace:'nowrap',fontWeight:600,fontSize:'13px',flexShrink:0}}>{d.label}</button>
+    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '24px', paddingBottom: '4px' }}>
+      {dateButtons.map(d => (
+        <button key={d.key} onClick={() => setSelectedDate(d.key)}
+          style={{ padding: '8px 18px', borderRadius: '20px', border: 'none', background: selectedDate === d.key ? '#6d28d9' : '#f3f4f6', color: selectedDate === d.key ? 'white' : '#374151', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600, fontSize: '13px', flexShrink: 0 }}>
+          {d.label}
+        </button>
       ))}
     </div>
   );
 
-  return(
-    <div style={{minHeight:'100vh',background:'#f9fafb'}}>
-      <div style={{background:'linear-gradient(to right,#002D5B,#0047AB)',padding:'24px',textAlign:'center',color:'white'}}>
-        <h1 style={{fontSize:'28px',fontWeight:'bold',margin:0}}>UGC NET Telegram Intelligence Hub</h1>
-        <p style={{margin:'8px 0 0 0',opacity:0.85,fontSize:'14px'}}>Real-time insights into all 25 UGC NET Testbook channels</p>
-        {lastFetched&&<p style={{margin:'6px 0 0 0',opacity:0.65,fontSize:'12px'}}>🟢 Live · Last updated: {lastFetched} IST</p>}
+  return (
+    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      <div style={{ background: 'linear-gradient(to right,#002D5B,#0047AB)', padding: '24px', textAlign: 'center', color: 'white' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>UGC NET Telegram Intelligence Hub</h1>
+        <p style={{ margin: '8px 0 0 0', opacity: 0.85, fontSize: '14px' }}>Real-time insights into all 25 UGC NET Testbook channels</p>
+        {lastFetched && <p style={{ margin: '6px 0 0 0', opacity: 0.65, fontSize: '12px' }}>🟢 Live · Last updated: {lastFetched} IST</p>}
       </div>
 
-      <div style={{background:'white',borderBottom:'1px solid #e5e7eb',padding:'0 16px',display:'flex',justifyContent:'center',gap:'24px',flexWrap:'wrap'}}>
-        {['analytics','digest','trends','alerts','competitive','ideas'].map(tab=>(
-          <button key={tab} onClick={()=>setActiveTab(tab)} style={{padding:'16px 0',border:'none',background:'none',cursor:'pointer',borderBottom:activeTab===tab?'2px solid #2563eb':'2px solid transparent',color:activeTab===tab?'#2563eb':'#6b7280',fontWeight:activeTab===tab?600:500,fontSize:'13px'}}>
-            {tab==='analytics'&&'📊 Analytics'}{tab==='digest'&&'📋 Digest'}{tab==='trends'&&'📈 Trends'}
-            {tab==='alerts'&&<>🔔 Alerts{alerts.length>0&&<span style={{background:'#dc2626',color:'white',borderRadius:'50%',fontSize:'10px',padding:'1px 5px',marginLeft:'4px',fontWeight:700}}>{alerts.length}</span>}</>}
-            {tab==='competitive'&&'✖ Competitive'}{tab==='ideas'&&'💡 Ideas'}
+      <div style={{ background: 'white', borderBottom: '1px solid #e5e7eb', padding: '0 16px', display: 'flex', justifyContent: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        {['analytics', 'digest', 'trends', 'alerts', 'competitive', 'ideas'].map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '14px 0', border: 'none', background: 'none', cursor: 'pointer', borderBottom: activeTab === tab ? '2px solid #2563eb' : '2px solid transparent', color: activeTab === tab ? '#2563eb' : '#6b7280', fontWeight: activeTab === tab ? 600 : 500, fontSize: '13px' }}>
+            {tab === 'analytics' && '📊 Analytics'}{tab === 'digest' && '📋 Digest'}{tab === 'trends' && '📈 Trends'}
+            {tab === 'alerts' && <>{`🔔 Alerts`}{alerts.length > 0 && <span style={{ background: '#dc2626', color: 'white', borderRadius: '50%', fontSize: '10px', padding: '1px 5px', marginLeft: '4px', fontWeight: 700 }}>{alerts.length}</span>}</>}
+            {tab === 'competitive' && '✖ Competitive'}{tab === 'ideas' && '💡 Ideas'}
           </button>
         ))}
       </div>
 
-      <div style={{maxWidth:'1400px',margin:'0 auto',padding:'32px 16px'}}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 16px' }}>
 
         {/* ── ANALYTICS ── */}
-        {activeTab==='analytics'&&(
+        {activeTab === 'analytics' && (
           <div>
-            <DateBar/>
-            {/* Summary cards */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'16px',marginBottom:'28px'}}>
-              {[{val:`${(totalSubs/1000).toFixed(1)}K`,label:'Total Subscribers',color:'#2563eb',live:true},{val:`${avgRate}%`,label:'Avg View Rate',color:'#16a34a'},{val:totalPosts,label:'Total Posts',color:'#d97706'},{val:'25',label:'Active Channels',color:'#7c3aed'}].map((card,i)=>(
-                <div key={i} style={{background:'white',padding:'20px',borderRadius:'12px',borderLeft:`4px solid ${card.color}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-                  <div style={{fontSize:'24px',fontWeight:'bold',color:'#002D5B'}}>
-                    {card.val}{card.live&&liveData&&<span style={{background:'#dcfce7',color:'#16a34a',fontSize:'11px',fontWeight:600,padding:'2px 8px',borderRadius:'20px',marginLeft:'8px'}}>🟢 LIVE</span>}
+            <DateBar />
+            {/* Summary cards — date-aware */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '24px' }}>
+              {[
+                { val: `${(dateTotalSubs / 1000).toFixed(1)}K`, label: 'Total Subscribers', color: '#2563eb', live: dateOffset === 0 },
+                { val: `${avgRate}%`, label: 'Avg View Rate', color: '#16a34a' },
+                { val: totalPosts, label: 'Total Posts', color: '#d97706' },
+                { val: '25', label: 'Active Channels', color: '#7c3aed' },
+              ].map((card, i) => (
+                <div key={i} style={{ background: 'white', padding: '18px 20px', borderRadius: '12px', borderLeft: `4px solid ${card.color}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#002D5B' }}>
+                    {card.val}
+                    {card.live && liveData && <span style={{ background: '#dcfce7', color: '#16a34a', fontSize: '10px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', marginLeft: '8px' }}>🟢 LIVE</span>}
+                    {!card.live && i === 0 && dateOffset > 0 && <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '10px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', marginLeft: '8px' }}>📅 {dateButtons.find(d => d.key === selectedDate)?.label}</span>}
                   </div>
-                  <div style={{fontSize:'13px',color:'#6b7280',marginTop:'4px'}}>{card.label}</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{card.label}</div>
                 </div>
               ))}
             </div>
 
             {/* Side-by-side: Testbook | Competitors */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'20px',marginBottom:'28px'}}>
-              {/* LEFT: Testbook channels */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,380px)', gap: '20px', alignItems: 'start' }}>
+              {/* LEFT — Testbook */}
               <div>
-                <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'10px',borderBottom:'2px solid #2563eb'}}>
-                  <span style={{width:'14px',height:'14px',background:'#2563eb',borderRadius:'50%',display:'inline-block'}}/>
-                  <h3 style={{margin:0,fontSize:'16px',fontWeight:700,color:'#002D5B'}}>Testbook (Core)</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '2px solid #2563eb' }}>
+                  <span style={{ width: '12px', height: '12px', background: '#2563eb', borderRadius: '50%' }} />
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#002D5B' }}>Testbook (Core)</h3>
                 </div>
-                {/* Subject filter */}
-                <div style={{display:'flex',gap:'6px',overflowX:'auto',marginBottom:'14px',paddingBottom:'4px'}}>
-                  {subjects.map(subj=>(
-                    <button key={subj} onClick={()=>setSelectedSubject(subj)} style={{padding:'5px 12px',borderRadius:'20px',border:'none',background:selectedSubject===subj?'#2563eb':'#f3f4f6',color:selectedSubject===subj?'white':'#374151',cursor:'pointer',whiteSpace:'nowrap',fontWeight:500,fontSize:'12px',flexShrink:0}}>{subj}</button>
+                {/* Subject pills — wrap, don't overflow */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                  {subjects.map(subj => (
+                    <button key={subj} onClick={() => setSelectedSubject(subj)}
+                      style={{ padding: '5px 12px', borderRadius: '20px', border: 'none', background: selectedSubject === subj ? '#2563eb' : '#f3f4f6', color: selectedSubject === subj ? 'white' : '#374151', cursor: 'pointer', fontWeight: 500, fontSize: '12px' }}>
+                      {subj}
+                    </button>
                   ))}
                 </div>
-                <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-                  {filtered.map(channel=>(
-                    <ChannelCard key={channel.name} channel={channel} expanded={expandedChannel===channel.name} onToggle={()=>setExpandedChannel(expandedChannel===channel.name?null:channel.name)} liveData={liveData}/>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {filtered.map(channel => (
+                    <ChannelCard key={channel.name} channel={channel}
+                      expanded={expandedChannel === channel.name}
+                      onToggle={() => setExpandedChannel(expandedChannel === channel.name ? null : channel.name)}
+                      liveData={liveData}
+                      selectedDate={selectedDate} />
                   ))}
                 </div>
               </div>
 
-              {/* RIGHT: Competitors */}
-              <div>
-                <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',paddingBottom:'10px',borderBottom:'2px solid #dc2626'}}>
-                  <span style={{width:'14px',height:'14px',background:'#dc2626',borderRadius:'50%',display:'inline-block'}}/>
-                  <h3 style={{margin:0,fontSize:'16px',fontWeight:700,color:'#002D5B'}}>Competitors</h3>
+              {/* RIGHT — Competitors */}
+              <div style={{ position: 'sticky', top: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '2px solid #dc2626' }}>
+                  <span style={{ width: '12px', height: '12px', background: '#dc2626', borderRadius: '50%' }} />
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#002D5B' }}>Competitors</h3>
                 </div>
-                <div style={{background:'#fef3c7',padding:'32px 24px',borderRadius:'12px',border:'1px dashed #f59e0b',textAlign:'center'}}>
-                  <p style={{margin:'0 0 8px 0',fontSize:'24px'}}>⏳</p>
-                  <p style={{margin:'0 0 6px 0',color:'#92400e',fontWeight:700,fontSize:'15px'}}>No competitors added yet</p>
-                  <p style={{margin:0,color:'#b45309',fontSize:'13px'}}>Share competitor channel @usernames to start benchmarking side-by-side</p>
+                <div style={{ background: '#fef3c7', padding: '32px 20px', borderRadius: '12px', border: '1px dashed #f59e0b', textAlign: 'center' }}>
+                  <p style={{ margin: '0 0 6px 0', fontSize: '28px' }}>⏳</p>
+                  <p style={{ margin: '0 0 6px 0', color: '#92400e', fontWeight: 700, fontSize: '14px' }}>No competitors added yet</p>
+                  <p style={{ margin: 0, color: '#b45309', fontSize: '12px', lineHeight: '1.6' }}>Share competitor channel @usernames to start benchmarking side-by-side</p>
                 </div>
               </div>
             </div>
@@ -325,57 +372,62 @@ export default function MainDashboard() {
         )}
 
         {/* ── DIGEST ── */}
-        {activeTab==='digest'&&(
+        {activeTab === 'digest' && (
           <div>
-            <DateBar/>
-            <div style={{background:'linear-gradient(135deg,#6d28d9,#4f46e5)',padding:'28px',borderRadius:'16px',color:'white',textAlign:'center',marginBottom:'24px'}}>
-              <h2 style={{margin:'0 0 4px 0',fontSize:'22px'}}>📋 Daily Digest</h2>
-              <p style={{margin:0,opacity:0.85}}>{new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
+            <DateBar />
+            <div style={{ background: 'linear-gradient(135deg,#6d28d9,#4f46e5)', padding: '28px', borderRadius: '16px', color: 'white', textAlign: 'center', marginBottom: '24px' }}>
+              <h2 style={{ margin: '0 0 4px 0', fontSize: '22px' }}>📋 Daily Digest</h2>
+              <p style={{ margin: 0, opacity: 0.85 }}>{new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'14px',marginBottom:'24px'}}>
-              {[{emoji:'👑',label:'Largest Channel',val:sorted[0]?.title,sub:`${sorted[0]?.subs.toLocaleString('en-IN')} subs`},{emoji:'🔥',label:'Highest View Rate',val:engagementLeaders[0]?.title,sub:`${engagementLeaders[0]?.rate}% rate`},{emoji:'✍️',label:'Most Active',val:postLeaders[0]?.title,sub:`${postLeaders[0]?.posts} posts`},{emoji:'📡',label:'Total Network',val:`${(totalSubs/1000).toFixed(1)}K`,sub:'across 25 channels'}].map((card,i)=>(
-                <div key={i} style={{background:'white',padding:'18px',borderRadius:'12px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-                  <p style={{margin:'0 0 4px 0',fontSize:'20px'}}>{card.emoji}</p>
-                  <p style={{margin:'0 0 3px 0',fontSize:'12px',color:'#6b7280'}}>{card.label}</p>
-                  <p style={{margin:'0 0 2px 0',fontSize:'15px',fontWeight:700,color:'#002D5B'}}>{card.val}</p>
-                  <p style={{margin:0,fontSize:'12px',color:'#6b7280'}}>{card.sub}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '24px' }}>
+              {[
+                { emoji: '👑', label: 'Largest Channel', val: sorted[0]?.title, sub: `${sorted[0]?.subs.toLocaleString('en-IN')} subs` },
+                { emoji: '🔥', label: 'Highest View Rate', val: engagementLeaders[0]?.title, sub: `${engagementLeaders[0]?.rate}% rate` },
+                { emoji: '✍️', label: 'Most Active', val: postLeaders[0]?.title, sub: `${postLeaders[0]?.posts} posts` },
+                { emoji: '📡', label: 'Total Network', val: `${(dateTotalSubs / 1000).toFixed(1)}K`, sub: 'across 25 channels' },
+              ].map((card, i) => (
+                <div key={i} style={{ background: 'white', padding: '16px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <p style={{ margin: '0 0 4px 0', fontSize: '20px' }}>{card.emoji}</p>
+                  <p style={{ margin: '0 0 3px 0', fontSize: '11px', color: '#6b7280' }}>{card.label}</p>
+                  <p style={{ margin: '0 0 2px 0', fontSize: '14px', fontWeight: 700, color: '#002D5B' }}>{card.val}</p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#6b7280' }}>{card.sub}</p>
                 </div>
               ))}
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginBottom:'24px'}}>
-              <div style={{background:'white',borderRadius:'12px',padding:'18px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-                <h4 style={{margin:'0 0 12px 0',fontSize:'14px',fontWeight:600,color:'#002D5B'}}>🔥 Top Engagement Rates</h4>
-                {engagementLeaders.map((ch,i)=>(
-                  <div key={ch.username} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:i<2?'1px solid #f3f4f6':'none'}}>
-                    <span style={{fontSize:'13px',color:'#374151'}}>{ch.title||ch.subject}</span>
-                    <span style={{fontSize:'13px',fontWeight:700,color:'#16a34a'}}>{ch.rate}%</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+              <div style={{ background: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: 600, color: '#002D5B' }}>🔥 Top Engagement Rates</h4>
+                {engagementLeaders.map((ch, i) => (
+                  <div key={ch.username} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < 2 ? '1px solid #f3f4f6' : 'none' }}>
+                    <span style={{ fontSize: '12px', color: '#374151' }}>{ch.title || ch.subject}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#16a34a' }}>{ch.rate}%</span>
                   </div>
                 ))}
               </div>
-              <div style={{background:'white',borderRadius:'12px',padding:'18px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-                <h4 style={{margin:'0 0 12px 0',fontSize:'14px',fontWeight:600,color:'#002D5B'}}>✍️ Most Active Channels</h4>
-                {postLeaders.map((ch,i)=>(
-                  <div key={ch.username} style={{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:i<2?'1px solid #f3f4f6':'none'}}>
-                    <span style={{fontSize:'13px',color:'#374151'}}>{ch.title||ch.subject}</span>
-                    <span style={{fontSize:'13px',fontWeight:700,color:'#2563eb'}}>{ch.posts} posts</span>
+              <div style={{ background: 'white', borderRadius: '12px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: 600, color: '#002D5B' }}>✍️ Most Active Channels</h4>
+                {postLeaders.map((ch, i) => (
+                  <div key={ch.username} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: i < 2 ? '1px solid #f3f4f6' : 'none' }}>
+                    <span style={{ fontSize: '12px', color: '#374151' }}>{ch.title || ch.subject}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#2563eb' }}>{ch.posts} posts</span>
                   </div>
                 ))}
               </div>
             </div>
-            <div style={{background:'white',borderRadius:'12px',padding:'20px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-              <h3 style={{margin:'0 0 14px 0',fontSize:'15px',fontWeight:600,color:'#002D5B'}}>All 25 Channels Ranked</h3>
-              {sorted.map((ch,i)=>(
-                <div key={ch.username} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0',borderBottom:i<sorted.length-1?'1px solid #f3f4f6':'none'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                    <span style={{color:'#9ca3af',fontSize:'13px',minWidth:'26px'}}>#{i+1}</span>
+            <div style={{ background: 'white', borderRadius: '12px', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: '#002D5B' }}>All 25 Channels Ranked</h3>
+              {sorted.map((ch, i) => (
+                <div key={ch.username} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < sorted.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ color: '#9ca3af', fontSize: '12px', minWidth: '24px' }}>#{i + 1}</span>
                     <div>
-                      <p style={{margin:0,fontWeight:600,fontSize:'13px',color:'#002D5B'}}>{ch.title||ch.subject}</p>
-                      <p style={{margin:0,color:'#9ca3af',fontSize:'12px'}}>{ch.name}</p>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: '13px', color: '#002D5B' }}>{ch.title || ch.subject}</p>
+                      <p style={{ margin: 0, color: '#9ca3af', fontSize: '11px' }}>{ch.name}</p>
                     </div>
                   </div>
-                  <div style={{textAlign:'right'}}>
-                    <p style={{margin:0,fontWeight:700,color:'#002D5B',fontSize:'13px'}}>{ch.subs.toLocaleString('en-IN')}</p>
-                    <p style={{margin:0,fontSize:'11px',color:'#16a34a'}}>{ch.rate}% rate</p>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ margin: 0, fontWeight: 700, color: '#002D5B', fontSize: '13px' }}>{ch.subs.toLocaleString('en-IN')}</p>
+                    <p style={{ margin: 0, fontSize: '11px', color: '#16a34a' }}>{ch.rate}% rate</p>
                   </div>
                 </div>
               ))}
@@ -384,75 +436,75 @@ export default function MainDashboard() {
         )}
 
         {/* ── TRENDS ── */}
-        {activeTab==='trends'&&(
+        {activeTab === 'trends' && (
           <div>
-            <DateBar/>
-            {/* Testbook channels trend section */}
-            <div style={{marginBottom:'32px'}}>
-              <h3 style={{margin:'0 0 4px 0',fontSize:'18px',fontWeight:700,color:'#002D5B'}}>📈 Testbook Channels — View Rate (24h) & Total Views — Last 7 Days</h3>
-              <p style={{margin:'0 0 20px 0',fontSize:'12px',color:'#9ca3af'}}>Bars: total daily views · Line: view rate (24h) %</p>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:'16px'}}>
-                {sorted.slice(0,6).map((ch,ci)=>{
-                  const history=buildHistory(ch.subs);
-                  const growth=ch.subs-history[0].subs;
-                  const growthPct=((growth/(history[0].subs||1))*100).toFixed(1);
-                  const col=TREND_COLORS[ci%TREND_COLORS.length];
-                  return(
-                    <div key={ch.username} style={{background:'white',borderRadius:'12px',padding:'16px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-                      <div style={{display:'flex',gap:'6px',alignItems:'center',marginBottom:'6px'}}>
-                        <span style={{width:'10px',height:'10px',background:col,borderRadius:'50%',flexShrink:0}}/>
-                        <p style={{margin:0,fontWeight:600,fontSize:'13px',color:'#002D5B'}}>{ch.title||ch.subject}</p>
+            <DateBar />
+            <div style={{ marginBottom: '32px' }}>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '17px', fontWeight: 700, color: '#002D5B' }}>📈 Testbook Channels — View Rate (24h) & Total Views — Last 7 Days</h3>
+              <p style={{ margin: '0 0 18px 0', fontSize: '12px', color: '#9ca3af' }}>Bars: total daily views · Line: view rate (24h) %</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: '14px' }}>
+                {sorted.slice(0, 6).map((ch, ci) => {
+                  const history = buildHistory(ch.subs, selectedDate);
+                  const growth = history[history.length - 1].subs - history[0].subs;
+                  const growthPct = ((growth / (history[0].subs || 1)) * 100).toFixed(1);
+                  const col = TREND_COLORS[ci % TREND_COLORS.length];
+                  return (
+                    <div key={ch.username} style={{ background: 'white', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px' }}>
+                        <span style={{ width: '9px', height: '9px', background: col, borderRadius: '50%', flexShrink: 0 }} />
+                        <p style={{ margin: 0, fontWeight: 600, fontSize: '13px', color: '#002D5B' }}>{ch.title || ch.subject}</p>
                       </div>
-                      <p style={{margin:'0 0 8px 0',fontSize:'11px',color:'#9ca3af'}}>{ch.name} · {ch.subs.toLocaleString('en-IN')} subs <span style={{color:growth>=0?'#16a34a':'#dc2626',fontWeight:600}}>{growth>=0?'▲':'▼'}{Math.abs(growth).toLocaleString('en-IN')} ({growthPct}%)</span></p>
-                      <MiniDualChart history={history} color={col}/>
+                      <p style={{ margin: '0 0 8px 0', fontSize: '11px', color: '#9ca3af' }}>
+                        {ch.name} · {ch.subs.toLocaleString('en-IN')} subs{' '}
+                        <span style={{ color: growth >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>{growth >= 0 ? '▲' : '▼'}{Math.abs(growth).toLocaleString('en-IN')} ({growthPct}%)</span>
+                      </p>
+                      <MiniDualChart history={history} color={col} />
                     </div>
                   );
                 })}
               </div>
             </div>
-
-            {/* Competitors trend section */}
             <div>
-              <h3 style={{margin:'0 0 4px 0',fontSize:'18px',fontWeight:700,color:'#002D5B'}}>📊 Competitors — View Rate (24h) & Total Views — Last 7 Days</h3>
-              <p style={{margin:'0 0 20px 0',fontSize:'12px',color:'#9ca3af'}}>Bars: total daily views · Line: view rate (24h) %</p>
-              <div style={{background:'#fef3c7',padding:'40px',borderRadius:'12px',border:'1px dashed #f59e0b',textAlign:'center'}}>
-                <p style={{margin:'0 0 6px 0',fontSize:'22px'}}>⏳</p>
-                <p style={{margin:0,color:'#92400e',fontWeight:600}}>No competitor channels added yet — share @usernames to unlock this section</p>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '17px', fontWeight: 700, color: '#002D5B' }}>📊 Competitors — View Rate (24h) & Total Views — Last 7 Days</h3>
+              <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#9ca3af' }}>Bars: total daily views · Line: view rate (24h) %</p>
+              <div style={{ background: '#fef3c7', padding: '40px', borderRadius: '12px', border: '1px dashed #f59e0b', textAlign: 'center' }}>
+                <p style={{ margin: '0 0 4px 0', fontSize: '22px' }}>⏳</p>
+                <p style={{ margin: 0, color: '#92400e', fontWeight: 600 }}>No competitor channels added — share @usernames to unlock</p>
               </div>
             </div>
           </div>
         )}
 
         {/* ── ALERTS ── */}
-        {activeTab==='alerts'&&(
+        {activeTab === 'alerts' && (
           <div>
-            <div style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)',padding:'28px',borderRadius:'16px',color:'white',textAlign:'center',marginBottom:'24px'}}>
-              <h2 style={{margin:'0 0 4px 0',fontSize:'22px'}}>🔔 Channel Alerts</h2>
-              <p style={{margin:0,opacity:0.85}}>{alerts.length} alerts · {new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long'})}</p>
+            <div style={{ background: 'linear-gradient(135deg,#dc2626,#b91c1c)', padding: '28px', borderRadius: '16px', color: 'white', textAlign: 'center', marginBottom: '24px' }}>
+              <h2 style={{ margin: '0 0 4px 0', fontSize: '22px' }}>🔔 Channel Alerts</h2>
+              <p style={{ margin: 0, opacity: 0.85 }}>{alerts.length} alerts · {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}</p>
             </div>
-            {alerts.length===0&&<div style={{background:'white',padding:'48px',borderRadius:'12px',textAlign:'center'}}><p style={{fontSize:'32px',margin:'0 0 12px 0'}}>✅</p><p style={{margin:0,fontWeight:600,color:'#002D5B'}}>All channels healthy</p></div>}
-            <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'24px'}}>
-              {alerts.map((alert,i)=>(
-                <div key={i} style={{background:'white',borderRadius:'12px',padding:'14px 18px',borderLeft:`4px solid ${alert.type==='warning'?'#f59e0b':'#16a34a'}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)',display:'flex',gap:'12px',alignItems:'center'}}>
-                  <span style={{fontSize:'18px'}}>{alert.type==='warning'?'⚠️':'🚀'}</span>
+            {alerts.length === 0 && <div style={{ background: 'white', padding: '48px', borderRadius: '12px', textAlign: 'center' }}><p style={{ fontSize: '32px', margin: '0 0 8px 0' }}>✅</p><p style={{ margin: 0, fontWeight: 600, color: '#002D5B' }}>All channels healthy</p></div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+              {alerts.map((alert, i) => (
+                <div key={i} style={{ background: 'white', borderRadius: '12px', padding: '12px 16px', borderLeft: `4px solid ${alert.type === 'warning' ? '#f59e0b' : '#16a34a'}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '18px' }}>{alert.type === 'warning' ? '⚠️' : '🚀'}</span>
                   <div>
-                    <p style={{margin:'0 0 2px 0',fontWeight:600,color:'#002D5B',fontSize:'13px'}}>@{alert.username}</p>
-                    <p style={{margin:0,color:'#6b7280',fontSize:'13px'}}>{alert.msg}</p>
+                    <p style={{ margin: '0 0 2px 0', fontWeight: 600, color: '#002D5B', fontSize: '13px' }}>@{alert.username}</p>
+                    <p style={{ margin: 0, color: '#6b7280', fontSize: '12px' }}>{alert.msg}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <div style={{background:'white',borderRadius:'12px',padding:'20px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-              <h4 style={{margin:'0 0 14px 0',color:'#002D5B',fontSize:'15px',fontWeight:600}}>📊 Health Check — All Channels</h4>
-              {sorted.map((ch,i)=>{
-                const health=ch.subs>10000?'great':ch.subs>3000?'good':ch.subs>1000?'low':'critical';
-                const meta={great:['#16a34a','🟢 Great'],good:['#2563eb','🔵 Good'],low:['#f59e0b','🟡 Low'],critical:['#dc2626','🔴 Critical']};
-                return(
-                  <div key={ch.username} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:i<sorted.length-1?'1px solid #f3f4f6':'none'}}>
-                    <div><p style={{margin:0,fontWeight:600,fontSize:'13px',color:'#002D5B'}}>{ch.title||ch.subject}</p><p style={{margin:0,fontSize:'12px',color:'#9ca3af'}}>{ch.name}</p></div>
-                    <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
-                      <span style={{fontSize:'13px',fontWeight:700,color:'#002D5B'}}>{ch.subs.toLocaleString('en-IN')}</span>
-                      <span style={{fontSize:'11px',fontWeight:600,color:meta[health][0]}}>{meta[health][1]}</span>
+            <div style={{ background: 'white', borderRadius: '12px', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <h4 style={{ margin: '0 0 12px 0', color: '#002D5B', fontSize: '14px', fontWeight: 600 }}>📊 Health Check — All Channels</h4>
+              {sorted.map((ch, i) => {
+                const health = ch.subs > 10000 ? 'great' : ch.subs > 3000 ? 'good' : ch.subs > 1000 ? 'low' : 'critical';
+                const meta = { great: ['#16a34a', '🟢 Great'], good: ['#2563eb', '🔵 Good'], low: ['#f59e0b', '🟡 Low'], critical: ['#dc2626', '🔴 Critical'] };
+                return (
+                  <div key={ch.username} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < sorted.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                    <div><p style={{ margin: 0, fontWeight: 600, fontSize: '13px', color: '#002D5B' }}>{ch.title || ch.subject}</p><p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>{ch.name}</p></div>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#002D5B' }}>{ch.subs.toLocaleString('en-IN')}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: meta[health][0] }}>{meta[health][1]}</span>
                     </div>
                   </div>
                 );
@@ -462,50 +514,50 @@ export default function MainDashboard() {
         )}
 
         {/* ── COMPETITIVE ── */}
-        {activeTab==='competitive'&&(
-          <div style={{background:'white',padding:'32px',borderRadius:'12px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-            <h3 style={{margin:'0 0 8px 0',color:'#002D5B'}}>✖ Competitive Intel</h3>
-            <p style={{color:'#6b7280',fontSize:'14px',marginBottom:'24px'}}>Share competitor @usernames to unlock head-to-head benchmarking.</p>
-            <div style={{background:'#fef3c7',padding:'40px',borderRadius:'12px',border:'1px dashed #f59e0b',textAlign:'center'}}>
-              <p style={{margin:'0 0 6px 0',fontSize:'22px'}}>⏳</p>
-              <p style={{margin:0,color:'#92400e',fontWeight:600}}>Waiting for competitor handles</p>
+        {activeTab === 'competitive' && (
+          <div style={{ background: 'white', padding: '32px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#002D5B' }}>✖ Competitive Intel</h3>
+            <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '24px' }}>Share competitor @usernames to unlock head-to-head benchmarking.</p>
+            <div style={{ background: '#fef3c7', padding: '40px', borderRadius: '12px', border: '1px dashed #f59e0b', textAlign: 'center' }}>
+              <p style={{ margin: '0 0 4px 0', fontSize: '22px' }}>⏳</p>
+              <p style={{ margin: 0, color: '#92400e', fontWeight: 600 }}>Waiting for competitor handles</p>
             </div>
           </div>
         )}
 
         {/* ── IDEAS ── */}
-        {activeTab==='ideas'&&(
+        {activeTab === 'ideas' && (
           <div>
-            <div style={{background:'linear-gradient(135deg,#10b981,#059669)',padding:'28px',borderRadius:'16px',color:'white',textAlign:'center',marginBottom:'24px'}}>
-              <h2 style={{margin:'0 0 4px 0',fontSize:'22px'}}>💡 Channel-wise Recommendations</h2>
-              <p style={{margin:0,opacity:0.9}}>Personalised strategy for each channel based on data</p>
+            <div style={{ background: 'linear-gradient(135deg,#10b981,#059669)', padding: '28px', borderRadius: '16px', color: 'white', textAlign: 'center', marginBottom: '24px' }}>
+              <h2 style={{ margin: '0 0 4px 0', fontSize: '22px' }}>💡 Channel-wise Recommendations</h2>
+              <p style={{ margin: 0, opacity: 0.9 }}>Personalised strategy for each channel based on data</p>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:'14px'}}>
-              {sorted.map((ch,i)=>{
-                const idea=getChannelIdea(ch);
-                const health=ch.subs>10000?'great':ch.subs>3000?'good':ch.subs>1000?'low':'critical';
-                const borderColor={great:'#16a34a',good:'#2563eb',low:'#f59e0b',critical:'#dc2626'}[health];
-                return(
-                  <div key={ch.username} style={{background:'white',borderRadius:'12px',padding:'18px',borderLeft:`4px solid ${borderColor}`,boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',flexWrap:'wrap',gap:'8px',marginBottom:'10px'}}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {sorted.map((ch, i) => {
+                const idea = getChannelIdea(ch);
+                const health = ch.subs > 10000 ? 'great' : ch.subs > 3000 ? 'good' : ch.subs > 1000 ? 'low' : 'critical';
+                const borderColor = { great: '#16a34a', good: '#2563eb', low: '#f59e0b', critical: '#dc2626' }[health];
+                return (
+                  <div key={ch.username} style={{ background: 'white', borderRadius: '12px', padding: '16px 18px', borderLeft: `4px solid ${borderColor}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                       <div>
-                        <h4 style={{margin:'0 0 2px 0',fontSize:'14px',fontWeight:700,color:'#002D5B'}}>{ch.title||ch.subject}</h4>
-                        <p style={{margin:0,fontSize:'12px',color:'#6b7280',fontFamily:'monospace'}}>{ch.name}</p>
+                        <h4 style={{ margin: '0 0 2px 0', fontSize: '14px', fontWeight: 700, color: '#002D5B' }}>{ch.title || ch.subject}</h4>
+                        <p style={{ margin: 0, fontSize: '11px', color: '#6b7280', fontFamily: 'monospace' }}>{ch.name}</p>
                       </div>
-                      <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-                        <span style={{background:'#f3f4f6',color:'#374151',padding:'2px 8px',borderRadius:'20px',fontSize:'11px',fontWeight:600}}>{ch.subs.toLocaleString('en-IN')} subs</span>
-                        <span style={{background:'#dbeafe',color:'#1e40af',padding:'2px 8px',borderRadius:'20px',fontSize:'11px',fontWeight:600}}>{ch.rate}% rate</span>
-                        <span style={{background:'#dcfce7',color:'#15803d',padding:'2px 8px',borderRadius:'20px',fontSize:'11px',fontWeight:600}}>{ch.posts} posts</span>
+                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                        <span style={{ background: '#f3f4f6', color: '#374151', padding: '1px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{ch.subs.toLocaleString('en-IN')} subs</span>
+                        <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{ch.rate}% rate</span>
+                        <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{ch.posts} posts</span>
                       </div>
                     </div>
-                    <div style={{background:'#f9fafb',borderRadius:'8px',padding:'10px 12px'}}>
-                      <p style={{margin:'0 0 3px 0',fontSize:'10px',fontWeight:600,color:'#6b7280',letterSpacing:'0.05em'}}>💡 RECOMMENDATION</p>
-                      <p style={{margin:0,fontSize:'13px',color:'#374151',lineHeight:'1.7'}}>{idea}</p>
+                    <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '9px 12px' }}>
+                      <p style={{ margin: '0 0 3px 0', fontSize: '10px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>💡 RECOMMENDATION</p>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: '1.6' }}>{idea}</p>
                     </div>
-                    {ch.bestHours?.length>0&&(
-                      <div style={{marginTop:'8px',display:'flex',gap:'5px',flexWrap:'wrap',alignItems:'center'}}>
-                        <span style={{fontSize:'11px',color:'#6b7280'}}>Best times:</span>
-                        {ch.bestHours.map(h=><span key={h} style={{background:'#ede9fe',color:'#5b21b6',padding:'1px 8px',borderRadius:'12px',fontSize:'11px',fontWeight:600}}>{h} IST</span>)}
+                    {ch.bestHours?.length > 0 && (
+                      <div style={{ marginTop: '8px', display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Best times:</span>
+                        {ch.bestHours.map(h => <span key={h} style={{ background: '#ede9fe', color: '#5b21b6', padding: '1px 7px', borderRadius: '12px', fontSize: '10px', fontWeight: 600 }}>{h} IST</span>)}
                       </div>
                     )}
                   </div>
@@ -516,9 +568,9 @@ export default function MainDashboard() {
         )}
       </div>
 
-      <div style={{background:'white',borderTop:'1px solid #e5e7eb',padding:'20px 16px',textAlign:'center',marginTop:'40px'}}>
-        <p style={{margin:0,color:'#6b7280',fontSize:'13px'}}>Last updated: {lastFetched||new Date().toLocaleDateString()}</p>
-        <p style={{margin:'4px 0 0 0',color:'#9ca3af',fontSize:'12px'}}>UGC NET Telegram Intelligence Hub · Powered by Telegram Bot API</p>
+      <div style={{ background: 'white', borderTop: '1px solid #e5e7eb', padding: '18px 16px', textAlign: 'center', marginTop: '40px' }}>
+        <p style={{ margin: 0, color: '#6b7280', fontSize: '13px' }}>Last updated: {lastFetched || new Date().toLocaleDateString()}</p>
+        <p style={{ margin: '4px 0 0 0', color: '#9ca3af', fontSize: '12px' }}>UGC NET Telegram Intelligence Hub · Powered by Telegram Bot API</p>
       </div>
     </div>
   );
