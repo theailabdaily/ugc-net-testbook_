@@ -1,38 +1,78 @@
 export async function GET() {
-  const channels = [
-    { username: 'testbook_ugcnet', label: 'UGC NET Common', subscribers: 40914 },
-    { username: 'pritipaper1', label: 'Paper 1 - Priti', subscribers: 21161 },
-    { username: 'tulikamam', label: 'Paper 1 - Tulika', subscribers: 15125 },
-    { username: 'Anshikamaamtestbook', label: 'Paper 1 - Anshika', subscribers: 11932 },
-    { username: 'testbookrajatsir', label: 'Paper 1 - Rajat Sir', subscribers: 3897 },
-    { username: 'pradyumansir_testbook', label: 'Political Science', subscribers: 28967 },
-    { username: 'AshwaniSir_Testbook', label: 'History', subscribers: 13400 },
-    { username: 'kiranmaamtestbook', label: 'Public Administration', subscribers: 6204 },
-    { username: 'Manojsonker_Testbook', label: 'Sociology', subscribers: 5496 },
-    { username: 'Heenamaam_testbook', label: 'Education', subscribers: 4887 },
-    { username: 'AditiMaam_Testbook', label: 'Home Science', subscribers: 4212 },
-    { username: 'karanSir_Testbook', label: 'Law', subscribers: 3418 },
-    { username: 'testbookdakshita', label: 'English', subscribers: 2976 },
-    { username: 'AshishSir_Testbook', label: 'Geography', subscribers: 1424 },
-    { username: 'ShachiMaam_Testbook', label: 'Economics', subscribers: 1376 },
-    { username: 'Monikamaamtestbook', label: 'Management', subscribers: 1249 },
-    { username: 'yogitamaamtestbook', label: 'Management', subscribers: 1201 },
-    { username: 'EVS_AnshikamaamTestbook', label: 'Environmental Science', subscribers: 1085 },
-    { username: 'daminimaam_testbook', label: 'Library Science', subscribers: 908 },
-    { username: 'TestbookShahna', label: 'Computer Science', subscribers: 847 },
-    { username: 'Prakashsirtestbook', label: 'Sanskrit', subscribers: 763 },
-    { username: 'kesharisir_testbook', label: 'Hindi', subscribers: 752 },
-    { username: 'TestbookNiharikaMaam', label: 'Commerce', subscribers: 696 },
-    { username: 'MrinaliniMaam_Testbook', label: 'Psychology', subscribers: 623 },
-    { username: 'testbook_gauravsir', label: 'Physical Education', subscribers: 112 },
+  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+
+  const usernames = [
+    { username: 'testbook_ugcnet', label: 'UGC NET Common' },
+    { username: 'pritipaper1', label: 'Paper 1 - Priti' },
+    { username: 'tulikamam', label: 'Paper 1 - Tulika' },
+    { username: 'Anshikamaamtestbook', label: 'Paper 1 - Anshika' },
+    { username: 'testbookrajatsir', label: 'Paper 1 - Rajat Sir' },
+    { username: 'pradyumansir_testbook', label: 'Political Science' },
+    { username: 'AshwaniSir_Testbook', label: 'History' },
+    { username: 'kiranmaamtestbook', label: 'Public Administration' },
+    { username: 'Manojsonker_Testbook', label: 'Sociology' },
+    { username: 'Heenamaam_testbook', label: 'Education' },
+    { username: 'AditiMaam_Testbook', label: 'Home Science' },
+    { username: 'karanSir_Testbook', label: 'Law' },
+    { username: 'testbookdakshita', label: 'English' },
+    { username: 'AshishSir_Testbook', label: 'Geography' },
+    { username: 'ShachiMaam_Testbook', label: 'Economics' },
+    { username: 'Monikamaamtestbook', label: 'Management' },
+    { username: 'yogitamaamtestbook', label: 'Management' },
+    { username: 'EVS_AnshikamaamTestbook', label: 'Environmental Science' },
+    { username: 'daminimaam_testbook', label: 'Library Science' },
+    { username: 'TestbookShahna', label: 'Computer Science' },
+    { username: 'Prakashsirtestbook', label: 'Sanskrit' },
+    { username: 'kesharisir_testbook', label: 'Hindi' },
+    { username: 'TestbookNiharikaMaam', label: 'Commerce' },
+    { username: 'MrinaliniMaam_Testbook', label: 'Psychology' },
+    { username: 'testbook_gauravsir', label: 'Physical Education' },
   ];
 
+  // Fallback static data (used if no bot token)
+  const staticSubs = [40914,21161,15125,11932,3897,28967,13400,6204,5496,4887,4212,3418,2976,1424,1376,1249,1201,1085,908,847,763,752,696,623,112];
+
+  let channels = [];
+
+  if (BOT_TOKEN) {
+    const results = await Promise.allSettled(
+      usernames.map(async (ch, i) => {
+        try {
+          const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=@${ch.username}`);
+          const data = await res.json();
+          if (data.ok) {
+            const countRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMemberCount?chat_id=@${ch.username}`);
+            const countData = await countRes.json();
+            return {
+              username: ch.username,
+              label: ch.label,
+              title: data.result?.title || ch.label,
+              description: data.result?.description || '',
+              subscribers: countData.ok ? countData.result : staticSubs[i],
+            };
+          }
+        } catch {}
+        return { username: ch.username, label: ch.label, title: ch.label, description: '', subscribers: staticSubs[i] };
+      })
+    );
+    channels = results.map((r, i) => r.status === 'fulfilled' ? r.value : { username: usernames[i].username, label: usernames[i].label, title: usernames[i].label, description: '', subscribers: staticSubs[i] });
+  } else {
+    channels = usernames.map((ch, i) => ({ username: ch.username, label: ch.label, title: ch.label, description: '', subscribers: staticSubs[i] }));
+  }
+
   const totalSubscribers = channels.reduce((sum, c) => sum + c.subscribers, 0);
+  const fetchedAt = new Date().toISOString();
+
+  // Build daily snapshot for trends
+  const today = fetchedAt.slice(0, 10);
+  const snapshot = { date: today, totalSubscribers, channels: channels.map(c => ({ username: c.username, subscribers: c.subscribers })) };
 
   return Response.json({
     success: true,
-    totalSubscribers: totalSubscribers,
-    channels: channels,
-    fetchedAt: new Date().toISOString(),
+    totalSubscribers,
+    channels,
+    snapshot,
+    fetchedAt,
+    isLive: !!BOT_TOKEN,
   });
 }
