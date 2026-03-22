@@ -521,7 +521,7 @@ export default function MainDashboard() {
               ))}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'start' }}>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', paddingBottom: '10px', borderBottom: '2px solid #2563eb' }}>
                   <span style={{ width: '12px', height: '12px', background: '#2563eb', borderRadius: '50%' }} />
                   <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#002D5B' }}>UGC NET Testbook</h3>
