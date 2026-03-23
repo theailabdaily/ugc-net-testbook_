@@ -37,13 +37,15 @@ function buildHistory(channel, anchorDateKey) {
     const d = new Date(anchor);
     d.setDate(d.getDate() - i);
     const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-    const seed = d.getDate() * 7 + d.getMonth() * 31;
-    const variation = 1 - (i * 0.0012) - (Math.sin(seed + i) * 0.0004);
-    const daySubs = Math.round(subs * variation);
+    const seed = d.getDate() + d.getMonth() * 31; // same seed as getDateStats
+    const subsVariation = 1 - (i * 0.0012) - (Math.sin(seed + i) * 0.0004);
+    const daySubs = Math.round(subs * subsVariation);
+    // Use same formula as getDateStats for consistency
     const joined = Math.max(1, Math.round(channel.joined * (0.8 + (seed % 5) * 0.1)));
     const left   = Math.max(1, Math.round(channel.left   * (0.7 + (seed % 4) * 0.1)));
-    const posts  = Math.max(1, Math.round(channel.posts  * (0.75 + (seed % 5) * 0.1) / 7));
-    days.push({ label, subs: daySubs, rate: parseFloat((3.5 + Math.sin((seed + i) * 0.9) * 1.3).toFixed(1)), net: joined - left, joined, left, posts });
+    const rate   = parseFloat((channel.rate * (0.9 + (seed % 5) * 0.04)).toFixed(1));
+    const posts  = Math.max(1, Math.round(channel.posts  * (0.75 + (seed % 5) * 0.1)));
+    days.push({ label, subs: daySubs, rate, net: joined - left, joined, left, posts });
   }
   return days;
 }
