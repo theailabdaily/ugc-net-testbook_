@@ -98,16 +98,20 @@ function MiniDualChart({ history, color }) {
   const minSubs = Math.min(...history.map(h => h.subs));
   const maxRate = Math.max(...history.map(h => h.rate));
   const minRate = Math.min(...history.map(h => h.rate));
+  const maxPosts = Math.max(...history.map(h => h.posts));
+  const minPosts = Math.min(...history.map(h => h.posts));
 
-  const sx = i => (i / (history.length - 1)) * W;
-  const syS = v => H - ((v - minSubs) / (maxSubs - minSubs || 1)) * (H - 10) - 5;
-  const syR = v => H - ((v - minRate) / (maxRate - minRate || 1)) * (H - 10) - 5;
+  const sx  = i => (i / (history.length - 1)) * W;
+  const syS = v => H - ((v - minSubs)  / (maxSubs  - minSubs  || 1)) * (H - 10) - 5;
+  const syR = v => H - ((v - minRate)  / (maxRate  - minRate  || 1)) * (H - 10) - 5;
+  const syP = v => H - ((v - minPosts) / (maxPosts - minPosts || 1)) * (H - 10) - 5;
 
-  const subsPts = history.map((h, i) => `${sx(i)},${syS(h.subs)}`).join(' ');
-  const ratePts = history.map((h, i) => `${sx(i)},${syR(h.rate)}`).join(' ');
+  const subsPts  = history.map((h, i) => `${sx(i)},${syS(h.subs)}`).join(' ');
+  const ratePts  = history.map((h, i) => `${sx(i)},${syR(h.rate)}`).join(' ');
+  const postsPts = history.map((h, i) => `${sx(i)},${syP(h.posts)}`).join(' ');
 
-  const subsTicks = [minSubs, (minSubs+maxSubs)/2, maxSubs].map(v => v >= 1000 ? `${(v/1000).toFixed(1)}K` : `${Math.round(v)}`);
-  const rateTicks = [minRate, ((minRate+maxRate)/2).toFixed(1), maxRate].map(v => `${v}%`);
+  const subsTicks  = [minSubs, (minSubs+maxSubs)/2, maxSubs].map(v => v >= 1000 ? `${(v/1000).toFixed(1)}K` : `${Math.round(v)}`);
+  const rateTicks  = [minRate, ((minRate+maxRate)/2).toFixed(1), maxRate].map(v => `${v}%`);
 
   return (
     <div style={{ position: 'relative', paddingLeft: 32, paddingRight: 36, paddingBottom: 32 }}>
@@ -131,30 +135,31 @@ function MiniDualChart({ history, color }) {
                 <div>Subs: <span style={{ color: `${color}ee`, fontWeight: 700 }}>{h.subs.toLocaleString('en-IN')}</span></div>
                 <div>View Rate: <span style={{ color: '#fbbf24', fontWeight: 700 }}>{h.rate}%</span></div>
                 <div>Net Subs: <span style={{ color: h.net >= 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>{h.net >= 0 ? '+' : ''}{h.net}</span></div>
-                <div>Posts: <span style={{ color: '#94a3b8', fontWeight: 700 }}>{h.posts}</span></div>
+                <div>Posts: <span style={{ color: '#86efac', fontWeight: 700 }}>{h.posts}</span></div>
               </div>
             )}
-            {/* Vertical guide line on hover */}
             {hovered === i && <div style={{ position: 'absolute', top: 0, left: '50%', width: 1, height: '100%', background: 'rgba(0,0,0,0.1)' }} />}
           </div>
         ))}
       </div>
 
-      {/* SVG: subs line (solid) + rate line (dashed) + dots */}
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', height: H }} preserveAspectRatio="none">
-        {/* Grid lines */}
+      {/* SVG: 3 lines */}
+      <svg width="100%" viewBox={`-2 -2 ${W+4} ${H+4}`} style={{ display: 'block', height: H, overflow: 'visible' }} preserveAspectRatio="none">
         {[0.25, 0.5, 0.75].map(f => <line key={f} x1={0} y1={H * f} x2={W} y2={H * f} stroke="#f3f4f6" strokeWidth="0.5" />)}
         {/* Subs area fill */}
         <polyline points={`0,${H} ${subsPts} ${W},${H}`} fill={`${color}18`} stroke="none" />
-        {/* Subs line */}
+        {/* Subs line — solid blue */}
         <polyline points={subsPts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        {/* Rate line dashed amber */}
+        {/* Rate line — dashed amber */}
         <polyline points={ratePts} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3,2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {/* Posts line — dotted green */}
+        <polyline points={postsPts} fill="none" stroke="#16a34a" strokeWidth="1.5" strokeDasharray="1,3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         {/* Dots */}
         {history.map((h, i) => (
           <g key={i}>
-            <circle cx={sx(i)} cy={syS(h.subs)} r={hovered === i ? '2.8' : '1.8'} fill={hovered === i ? 'white' : color} stroke={color} strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
-            <circle cx={sx(i)} cy={syR(h.rate)} r={hovered === i ? '2.4' : '1.4'} fill={hovered === i ? 'white' : '#f59e0b'} stroke="#f59e0b" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <circle cx={sx(i)} cy={syS(h.subs)}  r={hovered===i?'2.8':'1.8'} fill={hovered===i?'white':color}    stroke={color}    strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+            <circle cx={sx(i)} cy={syR(h.rate)}  r={hovered===i?'2.4':'1.4'} fill={hovered===i?'white':'#f59e0b'} stroke="#f59e0b"  strokeWidth="1"   vectorEffect="non-scaling-stroke" />
+            <circle cx={sx(i)} cy={syP(h.posts)} r={hovered===i?'2.4':'1.4'} fill={hovered===i?'white':'#16a34a'} stroke="#16a34a"  strokeWidth="1"   vectorEffect="non-scaling-stroke" />
           </g>
         ))}
       </svg>
@@ -162,17 +167,20 @@ function MiniDualChart({ history, color }) {
       {/* X-axis dates */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
         {history.map((h, i) => (
-          <span key={i} style={{ fontSize: '9px', color: hovered === i ? color : '#9ca3af', fontWeight: hovered === i ? 700 : 400, textAlign: 'center', flex: 1 }}>{h.label}</span>
+          <span key={i} style={{ fontSize: '9px', color: hovered===i ? color : '#9ca3af', fontWeight: hovered===i ? 700 : 400, textAlign: 'center', flex: 1 }}>{h.label}</span>
         ))}
       </div>
 
       {/* Axis legend — bottom left */}
-      <div style={{ position: 'absolute', bottom: 0, left: 32, display: 'flex', gap: 10, alignItems: 'center' }}>
+      <div style={{ position: 'absolute', bottom: 0, left: 32, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8, color: `${color}cc` }}>
           <span style={{ width: 14, height: 2, background: color, display: 'inline-block', borderRadius: 1 }} />Subs
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8, color: '#f59e0b' }}>
           <span style={{ width: 14, height: 0, borderTop: '1.5px dashed #f59e0b', display: 'inline-block' }} />Rate %
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 8, color: '#16a34a' }}>
+          <span style={{ width: 14, height: 0, borderTop: '1.5px dotted #16a34a', display: 'inline-block' }} />Posts
         </span>
         <span style={{ fontSize: 8, color: '#9ca3af' }}>X: Date</span>
       </div>
