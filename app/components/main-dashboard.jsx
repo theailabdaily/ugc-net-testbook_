@@ -85,33 +85,56 @@ function MiniBar({ value, max, color }) {
 
 function MiniDualChart({ history, color }) {
   const maxViews = Math.max(...history.map(h => h.views));
-  const maxRate = Math.max(...history.map(h => h.rate));
-  const minRate = Math.min(...history.map(h => h.rate));
+  const maxRate  = Math.max(...history.map(h => h.rate));
+  const minRate  = Math.min(...history.map(h => h.rate));
   const H = 80;
   const pts = history.map((h, i) => {
     const x = (i / (history.length - 1)) * 100;
     const y = H - ((h.rate - minRate) / (maxRate - minRate || 1)) * (H - 12) - 6;
     return `${x},${y}`;
   });
+  // Y-axis tick values
+  const rateRange = maxRate - minRate || 1;
+  const rateTicks = [0, 0.5, 1].map(f => (minRate + rateRange * f).toFixed(1));
+  const viewTicks = [0, 0.5, 1].map(f => {
+    const v = maxViews * f;
+    return v >= 1000 ? `${(v / 1000).toFixed(0)}K` : `${Math.round(v)}`;
+  });
   return (
-    <div style={{ position: 'relative', height: `${H + 20}px` }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: `${H}px`, position: 'absolute', bottom: '20px', left: 0, right: 0 }}>
+    <div style={{ position: 'relative', paddingLeft: 30, paddingRight: 32, paddingBottom: 18 }}>
+      {/* Left Y-axis: rate % */}
+      <div style={{ position: 'absolute', left: 0, top: 0, height: H, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 28 }}>
+        <span style={{ fontSize: 8, color: color, textAlign: 'right', display: 'block' }}>{rateTicks[2]}%</span>
+        <span style={{ fontSize: 8, color: color, textAlign: 'right', display: 'block' }}>{rateTicks[1]}%</span>
+        <span style={{ fontSize: 8, color: color, textAlign: 'right', display: 'block' }}>{rateTicks[0]}%</span>
+      </div>
+      {/* Right Y-axis: views */}
+      <div style={{ position: 'absolute', right: 0, top: 0, height: H, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 30 }}>
+        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{viewTicks[2]}</span>
+        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{viewTicks[1]}</span>
+        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{viewTicks[0]}</span>
+      </div>
+      {/* Bars */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: `${H}px` }}>
         {history.map((h, i) => (
           <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
-            <div style={{ width: '100%', height: `${Math.max(4, (h.views / maxViews) * H * 0.75)}px`, background: `${color}44`, borderRadius: '2px 2px 0 0' }} title={`${h.label}: ${h.views.toLocaleString('en-IN')} views, ${h.rate}% rate`} />
+            <div style={{ width: '100%', height: `${Math.max(4, (h.views / maxViews) * H * 0.75)}px`, background: `${color}44`, borderRadius: '2px 2px 0 0' }}
+              title={`${h.label}: ${h.views.toLocaleString('en-IN')} views, ${h.rate}% rate`} />
           </div>
         ))}
       </div>
-      <svg style={{ position: 'absolute', bottom: '20px', left: 0, width: '100%', height: `${H}px` }} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none">
+      {/* Line overlay */}
+      <svg style={{ position: 'absolute', top: 0, left: 30, right: 32, width: 'calc(100% - 62px)', height: `${H}px` }} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none">
         <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
         {history.map((h, i) => {
           const [x, y] = pts[i].split(',');
           return <circle key={i} cx={x} cy={y} r="1.8" fill={color} vectorEffect="non-scaling-stroke" />;
         })}
       </svg>
-      <div style={{ display: 'flex', justifyContent: 'space-between', position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-        {history.filter((_, i) => i % 2 === 0).map((h, i) => (
-          <span key={i} style={{ fontSize: '9px', color: '#9ca3af' }}>{h.label}</span>
+      {/* X-axis dates */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+        {history.map((h, i) => (
+          <span key={i} style={{ fontSize: '9px', color: '#9ca3af', textAlign: 'center', flex: 1 }}>{h.label}</span>
         ))}
       </div>
     </div>
@@ -182,9 +205,23 @@ function DrilldownStats({ channel }) {
     const sx = i => (i / (data.length - 1)) * W;
     const sy = v => H - ((v - min) / (max - min || 1)) * (H - 4) - 2;
     return (
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-        {keys.map((k, ki) => <polyline key={ki} points={data.map((d, i) => `${sx(i)},${sy(d[k] || 0)}`).join(' ')} fill="none" stroke={colors[ki]} strokeWidth="1.8" strokeLinejoin="round" />)}
-      </svg>
+      <div style={{ position: 'relative', paddingLeft: 28 }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
+          <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>{max.toLocaleString('en-IN')}</span>
+          <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>{Math.round((max+min)/2).toLocaleString('en-IN')}</span>
+          <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>{min.toLocaleString('en-IN')}</span>
+        </div>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+          <line x1="0" y1="0" x2="0" y2={H} stroke="#f3f4f6" strokeWidth="1" />
+          {keys.map((k, ki) => <polyline key={ki} points={data.map((d, i) => `${sx(i)},${sy(d[k] || 0)}`).join(' ')} fill="none" stroke={colors[ki]} strokeWidth="1.8" strokeLinejoin="round" />)}
+        </svg>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2, paddingLeft: 0 }}>
+          {data.filter((_, i) => i === 0 || i === Math.floor(data.length/2) || i === data.length-1).map((_, i, arr) => {
+            const origIdx = i === 0 ? 0 : i === 1 ? Math.floor(data.length/2) : data.length-1;
+            return <span key={i} style={{ fontSize: 8, color: '#9ca3af' }}>Day {origIdx+1}</span>;
+          })}
+        </div>
+      </div>
     );
   }
 
@@ -196,10 +233,23 @@ function DrilldownStats({ channel }) {
     const syV = v => H - (v / maxV) * (H - 4) - 2;
     const syS = v => H - (v / maxS) * (H - 4) - 2;
     return (
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-        {vsSeries.views  && <polyline points={data.map((d, i) => `${sx(i)},${syV(d.views)}`).join(' ')}  fill="none" stroke="#2563eb" strokeWidth="1.8" strokeLinejoin="round" />}
-        {vsSeries.shares && <polyline points={data.map((d, i) => `${sx(i)},${syS(d.shares)}`).join(' ')} fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinejoin="round" />}
-      </svg>
+      <div style={{ position: 'relative', paddingLeft: 28 }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
+          <span style={{ fontSize: 8, color: '#2563eb', textAlign: 'right' }}>{maxV.toLocaleString('en-IN')}</span>
+          <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right', lineHeight: 1 }}>Views</span>
+          <span style={{ fontSize: 8, color: '#f59e0b', textAlign: 'right' }}>{maxS.toLocaleString('en-IN')}</span>
+        </div>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+          <line x1="0" y1="0" x2="0" y2={H} stroke="#f3f4f6" strokeWidth="1" />
+          {vsSeries.views  && <polyline points={data.map((d, i) => `${sx(i)},${syV(d.views)}`).join(' ')}  fill="none" stroke="#2563eb" strokeWidth="1.8" strokeLinejoin="round" />}
+          {vsSeries.shares && <polyline points={data.map((d, i) => `${sx(i)},${syS(d.shares)}`).join(' ')} fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinejoin="round" />}
+        </svg>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day 1</span>
+          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day {Math.floor(data.length/2)}</span>
+          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day {data.length}</span>
+        </div>
+      </div>
     );
   }
 
@@ -209,13 +259,23 @@ function DrilldownStats({ channel }) {
     const bw = W / data.length * 0.75;
     const gap = W / data.length * 0.25;
     return (
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`}>
-        {data.map((d, i) => {
-          const x = i * (W / data.length) + gap / 2;
-          let y = H;
-          return keys.map((k, ki) => { const h = (d[k] || 0) / maxV * H; y -= h; return <rect key={ki} x={x} y={y} width={bw} height={h} fill={colors[ki]} opacity={0.85} />; });
-        })}
-      </svg>
+      <div style={{ position: 'relative', paddingLeft: 28 }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
+          <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>{maxV.toLocaleString('en-IN')}</span>
+          <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>0</span>
+        </div>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`}>
+          {data.map((d, i) => {
+            const x = i * (W / data.length) + gap / 2;
+            let y = H;
+            return keys.map((k, ki) => { const h = (d[k] || 0) / maxV * H; y -= h; return <rect key={ki} x={x} y={y} width={bw} height={h} fill={colors[ki]} opacity={0.85} />; });
+          })}
+        </svg>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day 1</span>
+          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day {data.length}</span>
+        </div>
+      </div>
     );
   }
 
@@ -228,12 +288,22 @@ function DrilldownStats({ channel }) {
   }
 
   function Slider({ value, onChange }) {
+    const steps = [7, 14, 30, 60, 90];
+    const idx = steps.indexOf(value) === -1 ? 2 : steps.indexOf(value);
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: '#9ca3af', minWidth: 22 }}>7d</span>
-        <input type="range" min={7} max={90} step={7} value={value} onChange={e => onChange(Number(e.target.value))} style={{ flex: 1, accentColor: '#2563eb', cursor: 'pointer', height: 3 }} />
-        <span style={{ fontSize: 10, color: '#9ca3af', minWidth: 22 }}>90d</span>
-        <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 700, minWidth: 28 }}>{value}d</span>
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <span style={{ fontSize: 10, color: '#6b7280', fontWeight: 600 }}>Range</span>
+          <span style={{ fontSize: 11, color: '#2563eb', fontWeight: 700 }}>{value} days</span>
+        </div>
+        <input type="range" min={0} max={steps.length - 1} step={1} value={idx}
+          onChange={e => onChange(steps[Number(e.target.value)])}
+          style={{ width: '100%', accentColor: '#2563eb', cursor: 'pointer', height: 3 }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+          {steps.map((s, i) => (
+            <span key={s} onClick={() => onChange(s)} style={{ fontSize: 9, color: i === idx ? '#2563eb' : '#9ca3af', fontWeight: i === idx ? 700 : 400, cursor: 'pointer' }}>{s}d</span>
+          ))}
+        </div>
       </div>
     );
   }
@@ -334,7 +404,13 @@ function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
           <div>
             <h3 style={{ margin: '0 0 3px 0', fontSize: '14px', fontWeight: 700, color: '#002D5B' }}>{channel.title || channel.subject}{channel.teacher && ` · ${channel.teacher}`}</h3>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12px', color: '#6b7280' }}>{channel.name}</span>
+              <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                <a href={`https://t.me/${channel.username}`} target="_blank" rel="noopener noreferrer"
+                  style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 500 }}
+                  onClick={e => e.stopPropagation()}>
+                  {channel.name} ↗
+                </a>
+              </span>
               <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>Own</span>
               <span style={{ fontSize: '11px', color: '#6b7280' }}>{channel.subs.toLocaleString('en-IN')} subs · {channel.posts} posts</span>
             </div>
@@ -399,10 +475,6 @@ function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
             <p style={{ margin: '0 0 6px 0', fontSize: '10px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>📈 SUBSCRIBER GROWTH (7-DAY)</p>
             <MiniDualChart history={history} color="#2563eb" />
           </div>
-          <a href={`https://t.me/${channel.username}`} target="_blank" rel="noopener noreferrer"
-            style={{ display: 'inline-block', background: '#2563eb', color: 'white', padding: '7px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, textDecoration: 'none' }}>
-            Open on Telegram →
-          </a>
           {/* ── Analytics drilldown with independent date sliders per chart ── */}
           <DrilldownStats channel={channel} />
         </div>
@@ -487,16 +559,39 @@ export default function MainDashboard() {
     </div>
   );
 
-  const DateBar = () => (
-    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '24px', paddingBottom: '4px' }}>
-      {dateButtons.map(d => (
-        <button key={d.key} onClick={() => setSelectedDate(d.key)}
-          style={{ padding: '8px 18px', borderRadius: '20px', border: 'none', background: selectedDate === d.key ? '#6d28d9' : '#f3f4f6', color: selectedDate === d.key ? 'white' : '#374151', cursor: 'pointer', whiteSpace: 'nowrap', fontWeight: 600, fontSize: '13px', flexShrink: 0 }}>
-          {d.label}
-        </button>
-      ))}
-    </div>
-  );
+  const DateBar = () => {
+    const idx = dateButtons.findIndex(d => d.key === selectedDate);
+    const activeIdx = idx === -1 ? 0 : idx;
+    return (
+      <div style={{ marginBottom: '24px', background: 'white', borderRadius: '14px', padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600, letterSpacing: '0.05em' }}>DATE RANGE</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#6d28d9' }}>
+            {dateButtons[activeIdx]?.label}
+            {activeIdx === 0 && <span style={{ background: '#ede9fe', color: '#6d28d9', fontSize: '10px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', marginLeft: '8px' }}>Today</span>}
+          </span>
+        </div>
+        <div style={{ position: 'relative', padding: '8px 0' }}>
+          <input
+            type="range"
+            min={0}
+            max={dateButtons.length - 1}
+            value={activeIdx}
+            onChange={e => setSelectedDate(dateButtons[Number(e.target.value)].key)}
+            style={{ width: '100%', accentColor: '#6d28d9', cursor: 'pointer', height: '4px' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px' }}>
+            {dateButtons.map((d, i) => (
+              <button key={d.key} onClick={() => setSelectedDate(d.key)}
+                style={{ fontSize: '10px', color: i === activeIdx ? '#6d28d9' : '#9ca3af', fontWeight: i === activeIdx ? 700 : 400, background: 'none', border: 'none', cursor: 'pointer', padding: '0', textAlign: 'center' }}>
+                {d.label.split(' ').slice(0, 2).join(' ')}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
