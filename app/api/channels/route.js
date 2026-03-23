@@ -31,10 +31,11 @@ const OWN_CHANNELS = [
 ];
 
 async function fetchOne(username) {
+  const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms));
   try {
     const [chatRes, countRes] = await Promise.all([
-      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=@${username}`),
-      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMemberCount?chat_id=@${username}`),
+      Promise.race([fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=@${username}`), timeout(4000)]),
+      Promise.race([fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMemberCount?chat_id=@${username}`), timeout(4000)]),
     ]);
     const chatData  = await chatRes.json();
     const countData = await countRes.json();
@@ -53,13 +54,12 @@ async function fetchOne(username) {
 }
 
 async function fetchBatch(usernames) {
-  const BATCH = 5;
+  const BATCH = 20; // 4 batches of 20 for ~80 competitors, no delay = ~2s total
   const results = [];
   for (let i = 0; i < usernames.length; i += BATCH) {
     const batch = usernames.slice(i, i + BATCH);
     const batchResults = await Promise.all(batch.map(fetchOne));
     results.push(...batchResults);
-    if (i + BATCH < usernames.length) await new Promise(r => setTimeout(r, 250));
   }
   return results;
 }
