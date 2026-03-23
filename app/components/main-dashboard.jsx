@@ -85,7 +85,9 @@ function MiniBar({ value, max, color }) {
 }
 
 function MiniDualChart({ history, color }) {
-  const maxViews = Math.max(...history.map(h => h.views));
+  const [hovered, setHovered] = React.useState(null);
+  const maxSubs  = Math.max(...history.map(h => h.subs));
+  const minSubs  = Math.min(...history.map(h => h.subs));
   const maxRate  = Math.max(...history.map(h => h.rate));
   const minRate  = Math.min(...history.map(h => h.rate));
   const H = 80;
@@ -94,48 +96,56 @@ function MiniDualChart({ history, color }) {
     const y = H - ((h.rate - minRate) / (maxRate - minRate || 1)) * (H - 12) - 6;
     return `${x},${y}`;
   });
-  // Y-axis tick values
   const rateRange = maxRate - minRate || 1;
   const rateTicks = [0, 0.5, 1].map(f => (minRate + rateRange * f).toFixed(1));
-  const viewTicks = [0, 0.5, 1].map(f => {
-    const v = maxViews * f;
-    return v >= 1000 ? `${(v / 1000).toFixed(0)}K` : `${Math.round(v)}`;
+  const subsTicks = [0, 0.5, 1].map(f => {
+    const v = minSubs + (maxSubs - minSubs) * f;
+    return v >= 1000 ? `${(v / 1000).toFixed(1)}K` : `${Math.round(v)}`;
   });
   return (
-    <div style={{ position: 'relative', paddingLeft: 30, paddingRight: 32, paddingBottom: 18 }}>
+    <div style={{ position: 'relative', paddingLeft: 30, paddingRight: 36, paddingBottom: 18 }}>
+      {/* Hover tooltip */}
+      {hovered !== null && (
+        <div style={{ position: 'absolute', top: -36, left: '50%', transform: 'translateX(-50%)', background: '#002D5B', color: 'white', borderRadius: 8, padding: '5px 10px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', zIndex: 10, pointerEvents: 'none' }}>
+          {history[hovered]?.label} · {history[hovered]?.subs.toLocaleString('en-IN')} subs · {history[hovered]?.rate}% rate
+        </div>
+      )}
       {/* Left Y-axis: rate % */}
       <div style={{ position: 'absolute', left: 0, top: 0, height: H, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 28 }}>
         <span style={{ fontSize: 8, color: color, textAlign: 'right', display: 'block' }}>{rateTicks[2]}%</span>
         <span style={{ fontSize: 8, color: color, textAlign: 'right', display: 'block' }}>{rateTicks[1]}%</span>
         <span style={{ fontSize: 8, color: color, textAlign: 'right', display: 'block' }}>{rateTicks[0]}%</span>
       </div>
-      {/* Right Y-axis: views */}
-      <div style={{ position: 'absolute', right: 0, top: 0, height: H, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 30 }}>
-        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{viewTicks[2]}</span>
-        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{viewTicks[1]}</span>
-        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{viewTicks[0]}</span>
+      {/* Right Y-axis: subs */}
+      <div style={{ position: 'absolute', right: 0, top: 0, height: H, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 34 }}>
+        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{subsTicks[2]}</span>
+        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{subsTicks[1]}</span>
+        <span style={{ fontSize: 8, color: `${color}99`, textAlign: 'left', display: 'block' }}>{subsTicks[0]}</span>
       </div>
-      {/* Bars */}
+      {/* Bars = subscriber count */}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: `${H}px` }}>
         {history.map((h, i) => (
-          <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end' }}>
-            <div style={{ width: '100%', height: `${Math.max(4, (h.views / maxViews) * H * 0.75)}px`, background: `${color}44`, borderRadius: '2px 2px 0 0' }}
-              title={`${h.label}: ${h.views.toLocaleString('en-IN')} views, ${h.rate}% rate`} />
+          <div key={i} style={{ flex: 1, height: '100%', display: 'flex', alignItems: 'flex-end', cursor: 'pointer' }}
+            onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+            <div style={{ width: '100%', height: `${Math.max(4, ((h.subs - minSubs) / (maxSubs - minSubs || 1)) * H * 0.75 + 4)}px`,
+              background: hovered === i ? color : `${color}44`, borderRadius: '2px 2px 0 0', transition: 'background 0.1s' }} />
           </div>
         ))}
       </div>
-      {/* Line overlay */}
-      <svg style={{ position: 'absolute', top: 0, left: 30, right: 32, width: 'calc(100% - 62px)', height: `${H}px` }} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none">
+      {/* Line overlay = rate */}
+      <svg style={{ position: 'absolute', top: 0, left: 30, right: 36, width: 'calc(100% - 66px)', height: `${H}px` }} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none">
         <polyline points={pts.join(' ')} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
         {history.map((h, i) => {
           const [x, y] = pts[i].split(',');
-          return <circle key={i} cx={x} cy={y} r="1.8" fill={color} vectorEffect="non-scaling-stroke" />;
+          return <circle key={i} cx={x} cy={y} r="1.8" fill={hovered === i ? 'white' : color}
+            stroke={color} strokeWidth="1" vectorEffect="non-scaling-stroke" />;
         })}
       </svg>
       {/* X-axis dates */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         {history.map((h, i) => (
-          <span key={i} style={{ fontSize: '9px', color: '#9ca3af', textAlign: 'center', flex: 1 }}>{h.label}</span>
+          <span key={i} style={{ fontSize: '9px', color: hovered === i ? color : '#9ca3af', fontWeight: hovered === i ? 700 : 400, textAlign: 'center', flex: 1, cursor: 'pointer' }}
+            onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>{h.label}</span>
         ))}
       </div>
     </div>
@@ -457,16 +467,6 @@ function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
                   ))}
                 </tbody>
               </table>
-            </div>
-          )}
-          {channel.topPost && (
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
-              <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#92400e' }}><strong>Top post:</strong> {channel.topPost}</p>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <span style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>{ds.avgViews >= 1000 ? `${(ds.avgViews / 1000).toFixed(1)}K` : ds.avgViews} views</span>
-                <span style={{ background: '#f0f9ff', color: '#0369a1', padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>View Rate (24h): {ds.rate}%</span>
-                <span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>{channel.avgFwd || 0} fwd</span>
-              </div>
             </div>
           )}
           <div style={{ background: 'white', borderRadius: '8px', padding: '10px 12px', marginBottom: '12px' }}>
