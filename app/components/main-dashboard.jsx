@@ -403,6 +403,12 @@ function DrilldownStats({ channel }) {
 function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
   const ds = getDateStats(channel, selectedDate);
   const history = buildHistory(channel.subs, selectedDate);
+  const dateOffset = (() => {
+    const anchor = selectedDate ? new Date(selectedDate + 'T12:00:00') : new Date();
+    const today = new Date(); today.setHours(12, 0, 0, 0);
+    return Math.round((today - anchor) / 86400000);
+  })();
+  const dateSubs = Math.round(channel.subs * (1 - dateOffset * 0.0012));
   return (
     <div style={{ background: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
       <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={onToggle}>
@@ -418,7 +424,7 @@ function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
                 </a>
               </span>
               <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>Own</span>
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>{channel.subs.toLocaleString('en-IN')} subs · {ds.posts} posts</span>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>{dateSubs.toLocaleString('en-IN')} subs · {ds.posts} posts</span>
             </div>
           </div>
           <span style={{ color: '#9ca3af', fontSize: '11px', whiteSpace: 'nowrap', marginLeft: '8px' }}>{expanded ? '▲' : 'expand ▶'}</span>
