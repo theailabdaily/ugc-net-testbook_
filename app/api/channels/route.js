@@ -1,77 +1,91 @@
-export const maxDuration = 30;
+export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
-  const usernames = [
-    { username: 'testbook_ugcnet', label: 'UGC NET Common' },
-    { username: 'pritipaper1', label: 'Paper 1 - Priti' },
-    { username: 'tulikamam', label: 'Paper 1 - Tulika' },
-    { username: 'Anshikamaamtestbook', label: 'Paper 1 - Anshika' },
-    { username: 'testbookrajatsir', label: 'Paper 1 - Rajat Sir' },
-    { username: 'pradyumansir_testbook', label: 'Political Science' },
-    { username: 'AshwaniSir_Testbook', label: 'History' },
-    { username: 'kiranmaamtestbook', label: 'Public Administration' },
-    { username: 'Manojsonker_Testbook', label: 'Sociology' },
-    { username: 'Heenamaam_testbook', label: 'Education' },
-    { username: 'AditiMaam_Testbook', label: 'Home Science' },
-    { username: 'karanSir_Testbook', label: 'Law' },
-    { username: 'testbookdakshita', label: 'English' },
-    { username: 'AshishSir_Testbook', label: 'Geography' },
-    { username: 'ShachiMaam_Testbook', label: 'Economics' },
-    { username: 'Monikamaamtestbook', label: 'Management' },
-    { username: 'yogitamaamtestbook', label: 'Management' },
-    { username: 'EVS_AnshikamaamTestbook', label: 'Environmental Science' },
-    { username: 'daminimaam_testbook', label: 'Library Science' },
-    { username: 'TestbookShahna', label: 'Computer Science' },
-    { username: 'Prakashsirtestbook', label: 'Sanskrit' },
-    { username: 'kesharisir_testbook', label: 'Hindi' },
-    { username: 'TestbookNiharikaMaam', label: 'Commerce' },
-    { username: 'MrinaliniMaam_Testbook', label: 'Psychology' },
-    { username: 'testbook_gauravsir', label: 'Physical Education' },
-  ];
+const OWN_CHANNELS = [
+  { username: 'testbook_ugcnet',       label: 'UGC NET Common' },
+  { username: 'pritipaper1',           label: 'Paper 1 - Priti' },
+  { username: 'tulikamam',             label: 'Paper 1 - Tulika' },
+  { username: 'Anshikamaamtestbook',   label: 'Paper 1 - Anshika' },
+  { username: 'testbookrajatsir',      label: 'Paper 1 - Rajat Sir' },
+  { username: 'pradyumansir_testbook', label: 'Political Science' },
+  { username: 'AshwaniSir_Testbook',   label: 'History' },
+  { username: 'kiranmaamtestbook',     label: 'Public Administration' },
+  { username: 'Manojsonker_Testbook',  label: 'Sociology' },
+  { username: 'Heenamaam_testbook',    label: 'Education' },
+  { username: 'AditiMaam_Testbook',    label: 'Home Science' },
+  { username: 'karanSir_Testbook',     label: 'Law' },
+  { username: 'testbookdakshita',      label: 'English' },
+  { username: 'AshishSir_Testbook',    label: 'Geography' },
+  { username: 'ShachiMaam_Testbook',   label: 'Economics' },
+  { username: 'Monikamaamtestbook',    label: 'Management' },
+  { username: 'yogitamaamtestbook',    label: 'Management' },
+  { username: 'EVS_AnshikamaamTestbook', label: 'Environmental Science' },
+  { username: 'daminimaam_testbook',   label: 'Library Science' },
+  { username: 'TestbookShahna',        label: 'Computer Science' },
+  { username: 'Prakashsirtestbook',    label: 'Sanskrit' },
+  { username: 'kesharisir_testbook',   label: 'Hindi' },
+  { username: 'TestbookNiharikaMaam',  label: 'Commerce' },
+  { username: 'MrinaliniMaam_Testbook',label: 'Psychology' },
+  { username: 'testbook_gauravsir',    label: 'Physical Education' },
+];
 
-  const staticSubs = [40914,21161,15125,11932,3897,28967,13400,6204,5496,4887,4212,3418,2976,1424,1376,1249,1201,1085,908,847,763,752,696,623,112];
+async function fetchOne(username) {
+  try {
+    const [chatRes, countRes] = await Promise.all([
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=@${username}`),
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChatMemberCount?chat_id=@${username}`),
+    ]);
+    const chatData  = await chatRes.json();
+    const countData = await countRes.json();
+    if (!chatData.ok) return { username, label: username, title: username, description: '', subscribers: 0, live: false };
+    return {
+      username,
+      label:       chatData.result.title || username,
+      title:       chatData.result.title || username,
+      description: chatData.result.description || '',
+      subscribers: countData.ok ? countData.result : 0,
+      live: true,
+    };
+  } catch {
+    return { username, label: username, title: username, description: '', subscribers: 0, live: false };
+  }
+}
 
-  let channels = [];
-  let isLive = false;
+async function fetchBatch(usernames) {
+  const BATCH = 5;
+  const results = [];
+  for (let i = 0; i < usernames.length; i += BATCH) {
+    const batch = usernames.slice(i, i + BATCH);
+    const batchResults = await Promise.all(batch.map(fetchOne));
+    results.push(...batchResults);
+    if (i + BATCH < usernames.length) await new Promise(r => setTimeout(r, 250));
+  }
+  return results;
+}
 
-  if (BOT_TOKEN) {
-    const results = await Promise.allSettled(
-      usernames.map(async (ch, i) => {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 8000);
-          const res = await fetch(
-            `https://api.telegram.org/bot${BOT_TOKEN}/getChatMemberCount?chat_id=@${ch.username}`,
-            { signal: controller.signal }
-          );
-          clearTimeout(timeout);
-          const data = await res.json();
-          return {
-            username: ch.username, label: ch.label, title: ch.label,
-            description: '', subscribers: data.ok ? data.result : staticSubs[i], live: data.ok,
-          };
-        } catch {
-          return { username: ch.username, label: ch.label, title: ch.label, description: '', subscribers: staticSubs[i], live: false };
-        }
-      })
-    );
-    channels = results.map((r, i) =>
-      r.status === 'fulfilled' ? r.value
-      : { username: usernames[i].username, label: usernames[i].label, title: usernames[i].label, description: '', subscribers: staticSubs[i], live: false }
-    );
-    isLive = channels.some(c => c.live);
-  } else {
-    channels = usernames.map((ch, i) => ({
-      username: ch.username, label: ch.label, title: ch.label, description: '', subscribers: staticSubs[i], live: false,
-    }));
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const type = searchParams.get('type');
+
+  // Competitor lookup: /api/channels?type=competitors&usernames=a,b,c
+  if (type === 'competitors') {
+    const usernamesParam = searchParams.get('usernames') || '';
+    const usernames = usernamesParam.split(',').map(u => u.trim()).filter(Boolean);
+    if (!usernames.length) return Response.json({ success: false, error: 'No usernames provided' }, { status: 400 });
+    const channels = await fetchBatch(usernames);
+    return Response.json({ success: true, channels, fetchedAt: new Date().toISOString() });
   }
 
-  const totalSubscribers = channels.reduce((sum, c) => sum + c.subscribers, 0);
-
+  // Default: own channels
+  const channels = await fetchBatch(OWN_CHANNELS.map(c => c.username));
+  const labeled = channels.map((ch, i) => ({ ...ch, label: OWN_CHANNELS[i]?.label || ch.label }));
+  const totalSubscribers = labeled.reduce((s, c) => s + c.subscribers, 0);
   return Response.json({
-    success: true, totalSubscribers, channels,
-    fetchedAt: new Date().toISOString(), isLive,
+    success: true,
+    totalSubscribers,
+    channels: labeled,
+    fetchedAt: new Date().toISOString(),
+    isLive: true,
   });
 }
