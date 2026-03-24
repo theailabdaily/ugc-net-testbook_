@@ -552,6 +552,256 @@ function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
   );
 }
 
+// ─── AI-powered Ideas Panel ────────────────────────────────────────────────
+function IdeasPanel({ channels, competitorData, competitorMap, getCompetitorKey, selectedDate }) {
+  const subjects = Array.from(new Set(channels.map(c => c.subject)));
+  const [subject, setSubject] = useState(subjects[0] || 'Common');
+  const [loading, setLoading] = useState(false);
+  const [insights, setInsights] = useState(null);
+  const [error, setError] = useState(null);
+  const [generatedFor, setGeneratedFor] = useState(null);
+
+  async function generate() {
+    setLoading(true); setError(null); setInsights(null);
+
+    const ownChs = channels.filter(c => c.subject === subject);
+    const key = getCompetitorKey(subject);
+    const compUsernames = competitorMap[key] || [];
+    const compDetails = compUsernames.map(u => {
+      const info = competitorData[u.toLowerCase()];
+      return { username: u, title: info?.title || u, subscribers: info?.subscribers ?? 0 };
+    }).filter(c => c.subscribers > 0).sort((a, b) => b.subscribers - a.subscribers);
+
+    const channelSummary = ownChs.map(ch => ({
+      channel: ch.title || ch.subject,
+      username: ch.username,
+      subscribers: ch.subs,
+      viewRate: ch.rate,
+      avgViews: ch.avgViews,
+      avgForwards: ch.avgFwd,
+      postsPerWeek: ch.posts,
+      joined: ch.joined,
+      left: ch.left,
+      bestHours: ch.bestHours,
+      contentTypes: ch.contentTypes,
+    }));
+
+    const prompt = `You are a senior growth strategist for a leading EdTech company in India. Analyze this UGC NET Telegram channel data for the subject "${subject}" and generate actionable intelligence.
+
+TODAY: ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+
+OWN CHANNELS:
+${JSON.stringify(channelSummary, null, 2)}
+
+TOP COMPETITORS (live subscriber counts):
+${compDetails.length ? JSON.stringify(compDetails, null, 2) : 'No competitor data available yet.'}
+
+Generate a JSON response ONLY (no markdown, no preamble) with this exact structure:
+{
+  "healthInsights": [
+    {
+      "channel": "channel name",
+      "signal": "2-4 word category e.g. Post Frequency, Subscriber Churn, Engagement Drop",
+      "observed": "One concrete sentence with specific numbers from the data.",
+      "hypothesis": "One sentence explaining the likely root cause.",
+      "action": "One specific, implementable action the team can take today.",
+      "severity": "high" | "medium" | "low"
+    }
+  ],
+  "keyInsight": "One paragraph synthesizing the single most important strategic finding, referencing specific data points and competitor comparison.",
+  "contentIdeas": [
+    {
+      "type": "pdf" | "video" | "text" | "quiz",
+      "title": "Specific content title",
+      "description": "2 sentences on what to create and why it will perform.",
+      "tags": ["UGC NET tag", "Subject tag", "Format tag"],
+      "competitorEvidence": "One sentence referencing a specific competitor gap or signal.",
+      "priority": "high" | "medium",
+      "effort": "quick (<2 hr)" | "moderate (half day)" | "large (1-2 days)"
+    }
+  ],
+  "quickWins": [
+    {
+      "title": "Short action title",
+      "description": "2 sentences on what to do and expected result.",
+      "inspiredBy": "Data signal or competitor name",
+      "priority": "high" | "medium",
+      "effort": "quick (<2 hr)" | "moderate (half day)"
+    }
+  ]
+}
+
+Rules: healthInsights: 2-4 items. contentIdeas: 2-3 items. quickWins: 2-3 items. Be specific and data-driven. Reference actual numbers. Do not fabricate data not in the input.`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      const data = await res.json();
+      const text = data.content?.find(b => b.type === 'text')?.text || '';
+      const clean = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+      setInsights(parsed);
+      setGeneratedFor(subject);
+    } catch (e) {
+      setError('Failed to generate insights. Please try again.');
+    }
+    setLoading(false);
+  }
+
+  const sevColor = { high: '#dc2626', medium: '#d97706', low: '#16a34a' };
+  const sevBg    = { high: '#fee2e2', medium: '#fef3c7', low: '#dcfce7' };
+  const typeIcon = { pdf: '📄', video: '▶️', text: '✍️', quiz: '🧪' };
+  const priorityStyle = s => ({ background: s === 'high' ? '#fee2e2' : '#fef3c7', color: s === 'high' ? '#dc2626' : '#92400e', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 });
+  const effortStyle   = s => ({ background: '#f3f4f6', color: '#374151', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 });
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ background: 'linear-gradient(135deg,#10b981,#059669)', padding: '28px', borderRadius: '16px', color: 'white', textAlign: 'center', marginBottom: '24px' }}>
+        <h2 style={{ margin: '0 0 4px 0', fontSize: '22px' }}>💡 AI-Powered Ideas</h2>
+        <p style={{ margin: 0, opacity: 0.9, fontSize: '13px' }}>Deep diagnostics · Content strategy · Quick wins — generated from your live data</p>
+      </div>
+
+      {/* Subject selector + generate button */}
+      <div style={{ background: 'white', borderRadius: '12px', padding: '16px 18px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <p style={{ margin: '0 0 10px 0', fontSize: '11px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>SELECT SUBJECT TO ANALYSE</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+          {subjects.map(s => (
+            <button key={s} onClick={() => setSubject(s)}
+              style={{ padding: '5px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+                background: subject === s ? '#10b981' : '#f3f4f6',
+                color: subject === s ? 'white' : '#374151' }}>
+              {s}
+            </button>
+          ))}
+        </div>
+        <button onClick={generate} disabled={loading}
+          style={{ background: loading ? '#9ca3af' : '#10b981', color: 'white', border: 'none', borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {loading ? <>
+            <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+            Analysing {subject}…
+          </> : `✨ Generate Insights for ${subject}`}
+        </button>
+        {generatedFor && !loading && <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#9ca3af' }}>Last generated for: {generatedFor} · {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}</p>}
+      </div>
+
+      {error && <div style={{ background: '#fee2e2', color: '#dc2626', padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', fontSize: '13px' }}>{error}</div>}
+
+      {insights && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          {/* Health Insights */}
+          {insights.healthInsights?.length > 0 && (
+            <div style={{ background: 'white', borderRadius: '12px', padding: '20px 22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#002D5B' }}>📊 Channel Health Insights ({insights.healthInsights.length})</h3>
+              <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#9ca3af' }}>Data-driven diagnostics — anomalies, risks, and standout signals</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {insights.healthInsights.map((h, i) => (
+                  <div key={i} style={{ borderLeft: `4px solid ${sevColor[h.severity] || '#9ca3af'}`, paddingLeft: '14px', paddingTop: 6, paddingBottom: 6, background: sevBg[h.severity] ? sevBg[h.severity] + '33' : '#f9fafb', borderRadius: '0 8px 8px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: '13px', color: '#002D5B' }}>{h.channel}</span>
+                        <span style={{ background: '#f3f4f6', color: '#6b7280', padding: '1px 8px', borderRadius: '20px', fontSize: '11px' }}>{h.signal}</span>
+                      </div>
+                      <span style={{ background: sevBg[h.severity], color: sevColor[h.severity], padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
+                        {h.severity === 'high' ? '🔴' : h.severity === 'medium' ? '🟡' : '🟢'} {h.severity?.charAt(0).toUpperCase() + h.severity?.slice(1)}
+                      </span>
+                    </div>
+                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#374151' }}><strong>Observed:</strong> {h.observed}</p>
+                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#374151' }}><strong>Hypothesis:</strong> {h.hypothesis}</p>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#059669', fontWeight: 500 }}><strong>Action:</strong> {h.action}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Key Insight */}
+          {insights.keyInsight && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px 20px' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: '#065f46', lineHeight: 1.7 }}>
+                <strong>💡 Key Insight:</strong> {insights.keyInsight}
+              </p>
+            </div>
+          )}
+
+          {/* Content Ideas */}
+          {insights.contentIdeas?.length > 0 && (
+            <div style={{ background: 'white', borderRadius: '12px', padding: '20px 22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#002D5B' }}>📝 Content Ideas ({insights.contentIdeas.length})</h3>
+              <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#9ca3af' }}>Specific topics grounded in competitor evidence and your own performance data</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {insights.contentIdeas.map((c, i) => (
+                  <div key={i} style={{ borderLeft: '3px solid #2563eb', paddingLeft: '14px', paddingTop: 4, paddingBottom: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, flexWrap: 'wrap', gap: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: '14px', color: '#002D5B' }}>
+                        {typeIcon[c.type] || '📌'} #{i + 1} {c.title}
+                      </span>
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <span style={priorityStyle(c.priority)}>{c.priority}</span>
+                        <span style={effortStyle(c.effort)}>{c.effort}</span>
+                      </div>
+                    </div>
+                    <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>{c.description}</p>
+                    {c.tags?.length > 0 && (
+                      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
+                        {c.tags.map(t => <span key={t} style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 8px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>{t}</span>)}
+                      </div>
+                    )}
+                    {c.competitorEvidence && (
+                      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '6px', padding: '6px 10px' }}>
+                        <p style={{ margin: 0, fontSize: '11px', color: '#92400e', fontStyle: 'italic' }}>📊 {c.competitorEvidence}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Wins */}
+          {insights.quickWins?.length > 0 && (
+            <div style={{ background: 'white', borderRadius: '12px', padding: '20px 22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#002D5B' }}>⚡ Quick Wins ({insights.quickWins.length})</h3>
+              <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#9ca3af' }}>High-impact actions your team can execute today</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {insights.quickWins.map((w, i) => (
+                  <div key={i} style={{ borderLeft: '3px solid #10b981', paddingLeft: '14px', paddingTop: 4, paddingBottom: 4 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5, flexWrap: 'wrap', gap: 6 }}>
+                      <span style={{ fontWeight: 700, fontSize: '13px', color: '#002D5B' }}>#{i + 1} {w.title}</span>
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <span style={priorityStyle(w.priority)}>{w.priority}</span>
+                        <span style={effortStyle(w.effort)}>{w.effort}</span>
+                      </div>
+                    </div>
+                    <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>{w.description}</p>
+                    {w.inspiredBy && <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>Inspired by: {w.inspiredBy}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!insights && !loading && (
+        <div style={{ background: 'white', borderRadius: '12px', padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <p style={{ fontSize: '32px', margin: '0 0 8px 0' }}>✨</p>
+          <p style={{ margin: '0 0 4px 0', fontWeight: 700, color: '#002D5B', fontSize: '16px' }}>Select a subject and generate insights</p>
+          <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px' }}>Claude will analyse your live data + {Object.values(competitorMap).flat().length} competitor channels to generate actionable intelligence</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TREND_COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777'];
 
 function CompetitorCard({ username, info, ownMaxSubs }) {
@@ -1157,44 +1407,13 @@ export default function MainDashboard() {
         )}
 
         {activeTab === 'ideas' && (
-          <div>
-            <div style={{ background: 'linear-gradient(135deg,#10b981,#059669)', padding: '28px', borderRadius: '16px', color: 'white', textAlign: 'center', marginBottom: '24px' }}>
-              <h2 style={{ margin: '0 0 4px 0', fontSize: '22px' }}>💡 Channel-wise Recommendations</h2>
-              <p style={{ margin: 0, opacity: 0.9 }}>Personalised strategy for each channel based on data</p>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {sorted.map((ch) => {
-                const idea = getChannelIdea(ch);
-                const health = ch.subs > 10000 ? 'great' : ch.subs > 3000 ? 'good' : ch.subs > 1000 ? 'low' : 'critical';
-                const borderColor = { great: '#16a34a', good: '#2563eb', low: '#f59e0b', critical: '#dc2626' }[health];
-                return (
-                  <div key={ch.username} style={{ background: 'white', borderRadius: '12px', padding: '16px 18px', borderLeft: `4px solid ${borderColor}`, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                      <div>
-                        <h4 style={{ margin: '0 0 2px 0', fontSize: '14px', fontWeight: 700, color: '#002D5B' }}>{ch.title || ch.subject}</h4>
-                        <p style={{ margin: 0, fontSize: '11px', color: '#6b7280', fontFamily: 'monospace' }}>{ch.name}</p>
-                      </div>
-                      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
-                        <span style={{ background: '#f3f4f6', color: '#374151', padding: '1px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{ch.subs.toLocaleString('en-IN')} subs</span>
-                        <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{ch.rate}% rate</span>
-                        <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>{ch.posts} posts</span>
-                      </div>
-                    </div>
-                    <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '9px 12px' }}>
-                      <p style={{ margin: '0 0 3px 0', fontSize: '10px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>💡 RECOMMENDATION</p>
-                      <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: '1.6' }}>{idea}</p>
-                    </div>
-                    {ch.bestHours?.length > 0 && (
-                      <div style={{ marginTop: '8px', display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ fontSize: '11px', color: '#6b7280' }}>Best times:</span>
-                        {ch.bestHours.map(h => <span key={h} style={{ background: '#ede9fe', color: '#5b21b6', padding: '1px 7px', borderRadius: '12px', fontSize: '10px', fontWeight: 600 }}>{h} IST</span>)}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <IdeasPanel
+            channels={channels}
+            competitorData={competitorData}
+            competitorMap={COMPETITOR_MAP}
+            getCompetitorKey={getCompetitorKey}
+            selectedDate={selectedDate}
+          />
         )}
       </div>
 
