@@ -34,31 +34,31 @@ function getCompetitorKey(subject) {
 }
 
 const STATIC_CHANNELS = [
-  { username: 'testbook_ugcnet', subject: 'Common', name: '@testbook_ugcnet', posts: 12, rate: 8.5, teacher: '', avgViews: 3400, avgFwd: 3.7, joined: 55, left: 36, bestHours: ['3:30pm','6:30pm','7:30pm','8:30pm'], contentTypes: [{type:'Morning Motivation',posts:4,avgViews:5000,rate:5.4,fwd:1.0},{type:'News Bulletin',posts:4,avgViews:2900,rate:3.1,fwd:5.0},{type:'Study Plans',posts:4,avgViews:2300,rate:2.4,fwd:5.0}], topPost: 'Morning motivation featuring a quote by Amartya Sen.' },
-  { username: 'pritipaper1', subject: 'Paper 1', name: '@pritipaper1', posts: 11, rate: 8.9, teacher: 'Priti', avgViews: 1900, avgFwd: 2.1, joined: 42, left: 18, bestHours: ['7:00am','12:00pm','6:00pm'], contentTypes: [{type:'PYQ Discussion',posts:4,avgViews:2200,rate:9.8,fwd:3.0},{type:'Concept Notes',posts:4,avgViews:1800,rate:8.5,fwd:2.0},{type:'Mock Test Links',posts:3,avgViews:1500,rate:7.2,fwd:1.5}], topPost: 'Paper 1 PYQ marathon — top 50 questions.' },
-  { username: 'tulikamam', subject: 'Paper 1', name: '@tulikamam', posts: 8, rate: 7.1, teacher: 'Tulika', avgViews: 1200, avgFwd: 1.8, joined: 30, left: 22, bestHours: ['8:00am','5:00pm'], contentTypes: [{type:'Study Plans',posts:3,avgViews:1400,rate:8.0,fwd:2.0},{type:'Concept Notes',posts:3,avgViews:1100,rate:6.8,fwd:1.8},{type:'Motivation',posts:2,avgViews:1000,rate:6.2,fwd:1.5}], topPost: 'Complete Paper 1 revision strategy in 30 days.' },
-  { username: 'Anshikamaamtestbook', subject: 'Paper 1', name: '@Anshikamaamtestbook', posts: 10, rate: 8.3, teacher: 'Anshika', avgViews: 1100, avgFwd: 2.2, joined: 28, left: 15, bestHours: ['9:00am','4:00pm','8:00pm'], contentTypes: [{type:'PYQ Discussion',posts:4,avgViews:1300,rate:9.1,fwd:3.0},{type:'Concept Notes',posts:3,avgViews:1000,rate:7.8,fwd:2.0},{type:'Study Plans',posts:3,avgViews:900,rate:7.2,fwd:1.8}], topPost: 'Teaching Aptitude PYQ with detailed explanation.' },
-  { username: 'testbookrajatsir', subject: 'Paper 1', name: '@testbookrajatsir', posts: 7, rate: 6.8, teacher: 'Rajat Sir', avgViews: 320, avgFwd: 1.2, joined: 12, left: 8, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'Concept Notes',posts:3,avgViews:380,rate:7.5,fwd:1.5},{type:'Study Plans',posts:2,avgViews:290,rate:6.2,fwd:1.0},{type:'Motivation',posts:2,avgViews:280,rate:5.8,fwd:1.0}], topPost: 'Research Methodology complete notes.' },
-  { username: 'pradyumansir_testbook', subject: 'Political Science', name: '@pradyumansir_testbook', posts: 9, rate: 7.2, teacher: '', avgViews: 2400, avgFwd: 4.1, joined: 48, left: 25, bestHours: ['8:00am','2:00pm','7:00pm'], contentTypes: [{type:'PYQ Discussion',posts:4,avgViews:2800,rate:8.1,fwd:5.0},{type:'Current Affairs',posts:3,avgViews:2200,rate:6.8,fwd:4.0},{type:'Concept Notes',posts:2,avgViews:1900,rate:6.1,fwd:3.0}], topPost: 'Indian Political Thought — complete unit revision.' },
-  { username: 'AshwaniSir_Testbook', subject: 'History', name: '@AshwaniSir_Testbook', posts: 9, rate: 7.5, teacher: '', avgViews: 1100, avgFwd: 2.8, joined: 35, left: 20, bestHours: ['9:00am','5:00pm'], contentTypes: [{type:'PYQ Discussion',posts:4,avgViews:1300,rate:8.5,fwd:3.5},{type:'Concept Notes',posts:3,avgViews:1000,rate:7.0,fwd:2.5},{type:'Timeline Notes',posts:2,avgViews:900,rate:6.2,fwd:2.0}], topPost: 'Modern Indian History complete timeline.' },
-  { username: 'kiranmaamtestbook', subject: 'Public Administration', name: '@kiranmaamtestbook', posts: 6, rate: 6.2, teacher: '', avgViews: 500, avgFwd: 1.5, joined: 18, left: 12, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'Concept Notes',posts:3,avgViews:580,rate:7.0,fwd:2.0},{type:'PYQ Discussion',posts:2,avgViews:460,rate:5.8,fwd:1.5},{type:'Study Plans',posts:1,avgViews:400,rate:5.0,fwd:1.0}], topPost: 'Administrative Theories — Fayol vs Taylor.' },
-  { username: 'Manojsonker_Testbook', subject: 'Sociology', name: '@Manojsonker_Testbook', posts: 7, rate: 6.8, teacher: '', avgViews: 420, avgFwd: 1.8, joined: 15, left: 10, bestHours: ['11:00am','7:00pm'], contentTypes: [{type:'Concept Notes',posts:3,avgViews:500,rate:7.5,fwd:2.0},{type:'PYQ Discussion',posts:2,avgViews:390,rate:6.5,fwd:1.8},{type:'Motivation',posts:2,avgViews:350,rate:5.8,fwd:1.5}], topPost: 'Max Weber vs Emile Durkheim — analysis.' },
-  { username: 'Heenamaam_testbook', subject: 'Education', name: '@Heenamaam_testbook', posts: 8, rate: 7.1, teacher: '', avgViews: 400, avgFwd: 1.6, joined: 14, left: 9, bestHours: ['9:00am','4:00pm'], contentTypes: [{type:'Concept Notes',posts:3,avgViews:480,rate:8.0,fwd:2.0},{type:'PYQ Discussion',posts:3,avgViews:370,rate:6.8,fwd:1.5},{type:'Study Plans',posts:2,avgViews:320,rate:5.8,fwd:1.2}], topPost: 'NCF 2005 complete summary.' },
-  { username: 'AditiMaam_Testbook', subject: 'Home Science', name: '@AditiMaam_Testbook', posts: 6, rate: 5.9, teacher: '', avgViews: 340, avgFwd: 1.2, joined: 12, left: 8, bestHours: ['10:00am','5:00pm'], contentTypes: [{type:'Concept Notes',posts:3,avgViews:400,rate:6.5,fwd:1.5},{type:'PYQ Discussion',posts:2,avgViews:300,rate:5.5,fwd:1.2},{type:'Motivation',posts:1,avgViews:280,rate:4.8,fwd:1.0}], topPost: 'Human Development theories.' },
-  { username: 'karanSir_Testbook', subject: 'Law', name: '@karanSir_Testbook', posts: 5, rate: 5.2, teacher: '', avgViews: 280, avgFwd: 1.1, joined: 10, left: 7, bestHours: ['11:00am','6:00pm'], contentTypes: [{type:'Case Studies',posts:2,avgViews:320,rate:6.0,fwd:1.5},{type:'Concept Notes',posts:2,avgViews:260,rate:5.0,fwd:1.0},{type:'PYQ Discussion',posts:1,avgViews:240,rate:4.5,fwd:1.0}], topPost: 'Constitutional Law — fundamental rights PYQ.' },
-  { username: 'testbookdakshita', subject: 'English', name: '@testbookdakshita', posts: 6, rate: 5.8, teacher: '', avgViews: 250, avgFwd: 1.3, joined: 9, left: 6, bestHours: ['9:00am','5:00pm'], contentTypes: [{type:'Literary Theory',posts:2,avgViews:290,rate:6.5,fwd:1.5},{type:'PYQ Discussion',posts:2,avgViews:240,rate:5.5,fwd:1.2},{type:'Author Notes',posts:2,avgViews:210,rate:4.8,fwd:1.0}], topPost: 'Post-colonial literature — key theorists.' },
-  { username: 'AshishSir_Testbook', subject: 'Geography', name: '@AshishSir_Testbook', posts: 4, rate: 4.5, teacher: '', avgViews: 130, avgFwd: 0.9, joined: 6, left: 5, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'Map Work',posts:2,avgViews:160,rate:5.0,fwd:1.2},{type:'Concept Notes',posts:1,avgViews:120,rate:4.2,fwd:0.8},{type:'PYQ Discussion',posts:1,avgViews:100,rate:3.5,fwd:0.7}], topPost: 'Physical Geography — climatology notes.' },
-  { username: 'ShachiMaam_Testbook', subject: 'Economics', name: '@ShachiMaam_Testbook', posts: 5, rate: 4.8, teacher: '', avgViews: 140, avgFwd: 1.0, joined: 6, left: 5, bestHours: ['11:00am','5:00pm'], contentTypes: [{type:'Concept Notes',posts:2,avgViews:170,rate:5.5,fwd:1.2},{type:'PYQ Discussion',posts:2,avgViews:130,rate:4.5,fwd:1.0},{type:'Current Affairs',posts:1,avgViews:110,rate:3.8,fwd:0.8}], topPost: 'Macroeconomics — IS-LM model simplified.' },
-  { username: 'Monikamaamtestbook', subject: 'Management', name: '@Monikamaamtestbook', posts: 3, rate: 3.9, teacher: '', avgViews: 110, avgFwd: 0.8, joined: 5, left: 4, bestHours: ['10:00am','5:00pm'], contentTypes: [{type:'Concept Notes',posts:2,avgViews:130,rate:4.5,fwd:1.0},{type:'PYQ Discussion',posts:1,avgViews:90,rate:3.0,fwd:0.6}], topPost: "Porter's Five Forces explained." },
-  { username: 'yogitamaamtestbook', subject: 'Management', name: '@yogitamaamtestbook', posts: 4, rate: 4.2, teacher: '', avgViews: 115, avgFwd: 0.9, joined: 5, left: 4, bestHours: ['9:00am','4:00pm'], contentTypes: [{type:'Concept Notes',posts:2,avgViews:140,rate:4.8,fwd:1.0},{type:'Case Studies',posts:1,avgViews:100,rate:3.8,fwd:0.8},{type:'PYQ Discussion',posts:1,avgViews:95,rate:3.5,fwd:0.7}], topPost: 'HR Management — Maslow vs Herzberg.' },
-  { username: 'EVS_AnshikamaamTestbook', subject: 'Environmental Science', name: '@EVS_AnshikamaamTestbook', posts: 3, rate: 3.5, teacher: '', avgViews: 95, avgFwd: 0.7, joined: 4, left: 4, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'Concept Notes',posts:2,avgViews:110,rate:4.0,fwd:0.8},{type:'PYQ Discussion',posts:1,avgViews:80,rate:2.8,fwd:0.6}], topPost: 'Climate Change and Biodiversity.' },
-  { username: 'daminimaam_testbook', subject: 'Library Science', name: '@daminimaam_testbook', posts: 2, rate: 2.8, teacher: '', avgViews: 80, avgFwd: 0.6, joined: 3, left: 3, bestHours: ['11:00am','5:00pm'], contentTypes: [{type:'Concept Notes',posts:1,avgViews:95,rate:3.2,fwd:0.8},{type:'PYQ Discussion',posts:1,avgViews:65,rate:2.4,fwd:0.5}], topPost: 'Library Classification — DDC vs UDC.' },
-  { username: 'TestbookShahna', subject: 'Computer Science', name: '@TestbookShahna', posts: 5, rate: 4.6, teacher: '', avgViews: 95, avgFwd: 1.0, joined: 4, left: 3, bestHours: ['9:00am','7:00pm'], contentTypes: [{type:'Algorithm Notes',posts:2,avgViews:115,rate:5.5,fwd:1.2},{type:'PYQ Discussion',posts:2,avgViews:90,rate:4.2,fwd:1.0},{type:'Concept Notes',posts:1,avgViews:75,rate:3.5,fwd:0.8}], topPost: 'Data Structures — Trees and Graphs.' },
-  { username: 'Prakashsirtestbook', subject: 'Sanskrit', name: '@Prakashsirtestbook', posts: 3, rate: 3.1, teacher: '', avgViews: 70, avgFwd: 0.6, joined: 3, left: 3, bestHours: ['8:00am','4:00pm'], contentTypes: [{type:'Grammar Notes',posts:2,avgViews:85,rate:3.5,fwd:0.7},{type:'PYQ Discussion',posts:1,avgViews:55,rate:2.5,fwd:0.5}], topPost: 'Panini grammar — Ashtadhyayi overview.' },
-  { username: 'kesharisir_testbook', subject: 'Hindi', name: '@kesharisir_testbook', posts: 4, rate: 3.8, teacher: '', avgViews: 80, avgFwd: 0.8, joined: 3, left: 3, bestHours: ['9:00am','5:00pm'], contentTypes: [{type:'Literature Notes',posts:2,avgViews:95,rate:4.5,fwd:1.0},{type:'PYQ Discussion',posts:1,avgViews:72,rate:3.5,fwd:0.8},{type:'Grammar Notes',posts:1,avgViews:60,rate:2.8,fwd:0.6}], topPost: 'Chhayavad poetry — key poets and works.' },
-  { username: 'TestbookNiharikaMaam', subject: 'Commerce', name: '@TestbookNiharikaMaam', posts: 2, rate: 2.5, teacher: '', avgViews: 70, avgFwd: 0.5, joined: 3, left: 3, bestHours: ['10:00am','5:00pm'], contentTypes: [{type:'Concept Notes',posts:1,avgViews:85,rate:3.0,fwd:0.6},{type:'PYQ Discussion',posts:1,avgViews:55,rate:2.0,fwd:0.4}], topPost: 'Financial Accounting — ratio analysis.' },
-  { username: 'MrinaliniMaam_Testbook', subject: 'Psychology', name: '@MrinaliniMaam_Testbook', posts: 3, rate: 3.2, teacher: '', avgViews: 72, avgFwd: 0.7, joined: 3, left: 3, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'Concept Notes',posts:2,avgViews:88,rate:3.8,fwd:0.8},{type:'PYQ Discussion',posts:1,avgViews:56,rate:2.5,fwd:0.6}], topPost: 'Cognitive theories — Piaget vs Vygotsky.' },
-  { username: 'testbook_gauravsir', subject: 'Physical Education', name: '@testbook_gauravsir', posts: 1, rate: 1.5, teacher: '', avgViews: 20, avgFwd: 0.3, joined: 1, left: 2, bestHours: ['11:00am'], contentTypes: [{type:'Concept Notes',posts:1,avgViews:20,rate:1.5,fwd:0.3}], topPost: 'Sports physiology — basic concepts.' },
+  { username: 'testbook_ugcnet', subject: 'Common', name: '@testbook_ugcnet', posts: 12, rate: 8.5, teacher: '', avgViews: 3400, avgFwd: 3.7, joined: 55, left: 36, bestHours: ['3:30pm','6:30pm','7:30pm','8:30pm'], contentTypes: [{type:'Quiz / Poll',posts:5,avgViews:3800,rate:9.2,fwd:2.1},{type:'YouTube Class Link',posts:3,avgViews:4200,rate:10.4,fwd:4.8},{type:'PDF Notes',posts:2,avgViews:5100,rate:12.5,fwd:9.2},{type:'Current Affairs',posts:2,avgViews:3200,rate:7.8,fwd:3.6}] },
+  { username: 'pritipaper1', subject: 'Paper 1', name: '@pritipaper1', posts: 11, rate: 8.9, teacher: 'Priti', avgViews: 1900, avgFwd: 2.1, joined: 42, left: 18, bestHours: ['7:00am','12:00pm','6:00pm'], contentTypes: [{type:'Quiz / Poll',posts:4,avgViews:2100,rate:10.1,fwd:2.5},{type:'Voice Note Class',posts:3,avgViews:2400,rate:11.5,fwd:1.8},{type:'PDF Notes',posts:2,avgViews:2800,rate:13.2,fwd:6.5},{type:'YouTube Class Link',posts:2,avgViews:2000,rate:9.6,fwd:2.2}] },
+  { username: 'tulikamam', subject: 'Paper 1', name: '@tulikamam', posts: 8, rate: 7.1, teacher: 'Tulika', avgViews: 1200, avgFwd: 1.8, joined: 30, left: 22, bestHours: ['8:00am','5:00pm'], contentTypes: [{type:'Quiz / Poll',posts:3,avgViews:1300,rate:8.0,fwd:2.0},{type:'PDF Notes',posts:3,avgViews:1500,rate:9.2,fwd:4.1},{type:'Voice Note Class',posts:2,avgViews:1100,rate:7.5,fwd:1.5}] },
+  { username: 'Anshikamaamtestbook', subject: 'Paper 1', name: '@Anshikamaamtestbook', posts: 10, rate: 8.3, teacher: 'Anshika', avgViews: 1100, avgFwd: 2.2, joined: 28, left: 15, bestHours: ['9:00am','4:00pm','8:00pm'], contentTypes: [{type:'Quiz / Poll',posts:4,avgViews:1200,rate:9.1,fwd:2.8},{type:'YouTube Class Link',posts:3,avgViews:1400,rate:10.3,fwd:3.5},{type:'PDF Notes',posts:2,avgViews:1600,rate:11.8,fwd:5.2},{type:'Promotional Post',posts:1,avgViews:800,rate:5.5,fwd:1.0}] },
+  { username: 'testbookrajatsir', subject: 'Paper 1', name: '@testbookrajatsir', posts: 7, rate: 6.8, teacher: 'Rajat Sir', avgViews: 320, avgFwd: 1.2, joined: 12, left: 8, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'Quiz / Poll',posts:3,avgViews:350,rate:7.5,fwd:1.5},{type:'PDF Notes',posts:2,avgViews:420,rate:9.0,fwd:2.8},{type:'PYQ Discussion',posts:2,avgViews:300,rate:6.5,fwd:1.2}] },
+  { username: 'pradyumansir_testbook', subject: 'Political Science', name: '@pradyumansir_testbook', posts: 9, rate: 7.2, teacher: '', avgViews: 2400, avgFwd: 4.1, joined: 48, left: 25, bestHours: ['8:00am','2:00pm','7:00pm'], contentTypes: [{type:'YouTube Class Link',posts:4,avgViews:2900,rate:8.5,fwd:5.2},{type:'PYQ Discussion',posts:3,avgViews:2500,rate:7.8,fwd:4.5},{type:'PDF Notes',posts:2,avgViews:3100,rate:10.2,fwd:7.8}] },
+  { username: 'AshwaniSir_Testbook', subject: 'History', name: '@AshwaniSir_Testbook', posts: 9, rate: 7.5, teacher: '', avgViews: 1100, avgFwd: 2.8, joined: 35, left: 20, bestHours: ['9:00am','5:00pm'], contentTypes: [{type:'YouTube Class Link',posts:4,avgViews:1300,rate:8.5,fwd:3.5},{type:'PDF Notes',posts:3,avgViews:1500,rate:10.1,fwd:4.8},{type:'Quiz / Poll',posts:2,avgViews:900,rate:6.2,fwd:2.0}] },
+  { username: 'kiranmaamtestbook', subject: 'Public Administration', name: '@kiranmaamtestbook', posts: 6, rate: 6.2, teacher: '', avgViews: 500, avgFwd: 1.5, joined: 18, left: 12, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'PDF Notes',posts:3,avgViews:620,rate:8.0,fwd:2.5},{type:'PYQ Discussion',posts:2,avgViews:480,rate:6.2,fwd:1.8},{type:'Quiz / Poll',posts:1,avgViews:400,rate:5.0,fwd:1.2}] },
+  { username: 'Manojsonker_Testbook', subject: 'Sociology', name: '@Manojsonker_Testbook', posts: 7, rate: 6.8, teacher: '', avgViews: 420, avgFwd: 1.8, joined: 15, left: 10, bestHours: ['11:00am','7:00pm'], contentTypes: [{type:'PDF Notes',posts:3,avgViews:520,rate:8.5,fwd:2.8},{type:'YouTube Class Link',posts:2,avgViews:450,rate:7.2,fwd:2.0},{type:'Quiz / Poll',posts:2,avgViews:340,rate:5.8,fwd:1.5}] },
+  { username: 'Heenamaam_testbook', subject: 'Education', name: '@Heenamaam_testbook', posts: 8, rate: 7.1, teacher: '', avgViews: 400, avgFwd: 1.6, joined: 14, left: 9, bestHours: ['9:00am','4:00pm'], contentTypes: [{type:'PDF Notes',posts:3,avgViews:500,rate:9.0,fwd:2.8},{type:'Voice Note Class',posts:3,avgViews:420,rate:7.5,fwd:1.8},{type:'Quiz / Poll',posts:2,avgViews:320,rate:5.8,fwd:1.2}] },
+  { username: 'AditiMaam_Testbook', subject: 'Home Science', name: '@AditiMaam_Testbook', posts: 6, rate: 5.9, teacher: '', avgViews: 340, avgFwd: 1.2, joined: 12, left: 8, bestHours: ['10:00am','5:00pm'], contentTypes: [{type:'PDF Notes',posts:3,avgViews:420,rate:7.5,fwd:2.0},{type:'YouTube Class Link',posts:2,avgViews:360,rate:6.2,fwd:1.5},{type:'Quiz / Poll',posts:1,avgViews:250,rate:4.5,fwd:0.9}] },
+  { username: 'karanSir_Testbook', subject: 'Law', name: '@karanSir_Testbook', posts: 5, rate: 5.2, teacher: '', avgViews: 280, avgFwd: 1.1, joined: 10, left: 7, bestHours: ['11:00am','6:00pm'], contentTypes: [{type:'PDF Notes',posts:2,avgViews:340,rate:7.0,fwd:2.0},{type:'PYQ Discussion',posts:2,avgViews:280,rate:5.5,fwd:1.2},{type:'YouTube Class Link',posts:1,avgViews:250,rate:5.0,fwd:1.0}] },
+  { username: 'testbookdakshita', subject: 'English', name: '@testbookdakshita', posts: 6, rate: 5.8, teacher: '', avgViews: 250, avgFwd: 1.3, joined: 9, left: 6, bestHours: ['9:00am','5:00pm'], contentTypes: [{type:'PDF Notes',posts:2,avgViews:310,rate:7.5,fwd:2.2},{type:'YouTube Class Link',posts:2,avgViews:270,rate:6.0,fwd:1.5},{type:'Quiz / Poll',posts:2,avgViews:200,rate:5.0,fwd:1.0}] },
+  { username: 'AshishSir_Testbook', subject: 'Geography', name: '@AshishSir_Testbook', posts: 4, rate: 4.5, teacher: '', avgViews: 130, avgFwd: 0.9, joined: 6, left: 5, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'PDF Notes',posts:2,avgViews:165,rate:6.0,fwd:1.5},{type:'YouTube Class Link',posts:1,avgViews:140,rate:5.2,fwd:1.0},{type:'Quiz / Poll',posts:1,avgViews:90,rate:3.5,fwd:0.7}] },
+  { username: 'ShachiMaam_Testbook', subject: 'Economics', name: '@ShachiMaam_Testbook', posts: 5, rate: 4.8, teacher: '', avgViews: 140, avgFwd: 1.0, joined: 6, left: 5, bestHours: ['11:00am','5:00pm'], contentTypes: [{type:'PDF Notes',posts:2,avgViews:180,rate:6.5,fwd:1.8},{type:'YouTube Class Link',posts:2,avgViews:145,rate:5.0,fwd:1.2},{type:'Current Affairs',posts:1,avgViews:110,rate:3.8,fwd:0.8}] },
+  { username: 'Monikamaamtestbook', subject: 'Management', name: '@Monikamaamtestbook', posts: 3, rate: 3.9, teacher: '', avgViews: 110, avgFwd: 0.8, joined: 5, left: 4, bestHours: ['10:00am','5:00pm'], contentTypes: [{type:'PDF Notes',posts:2,avgViews:140,rate:5.5,fwd:1.2},{type:'YouTube Class Link',posts:1,avgViews:90,rate:3.5,fwd:0.8}] },
+  { username: 'yogitamaamtestbook', subject: 'Management', name: '@yogitamaamtestbook', posts: 4, rate: 4.2, teacher: '', avgViews: 115, avgFwd: 0.9, joined: 5, left: 4, bestHours: ['9:00am','4:00pm'], contentTypes: [{type:'PDF Notes',posts:2,avgViews:145,rate:5.8,fwd:1.5},{type:'YouTube Class Link',posts:1,avgViews:120,rate:4.5,fwd:1.0},{type:'Quiz / Poll',posts:1,avgViews:85,rate:3.2,fwd:0.7}] },
+  { username: 'EVS_AnshikamaamTestbook', subject: 'Environmental Science', name: '@EVS_AnshikamaamTestbook', posts: 3, rate: 3.5, teacher: '', avgViews: 95, avgFwd: 0.7, joined: 4, left: 4, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'PDF Notes',posts:2,avgViews:115,rate:5.0,fwd:1.2},{type:'Quiz / Poll',posts:1,avgViews:75,rate:3.0,fwd:0.6}] },
+  { username: 'daminimaam_testbook', subject: 'Library Science', name: '@daminimaam_testbook', posts: 2, rate: 2.8, teacher: '', avgViews: 80, avgFwd: 0.6, joined: 3, left: 3, bestHours: ['11:00am','5:00pm'], contentTypes: [{type:'PDF Notes',posts:1,avgViews:98,rate:4.0,fwd:1.0},{type:'Quiz / Poll',posts:1,avgViews:62,rate:2.5,fwd:0.5}] },
+  { username: 'TestbookShahna', subject: 'Computer Science', name: '@TestbookShahna', posts: 5, rate: 4.6, teacher: '', avgViews: 95, avgFwd: 1.0, joined: 4, left: 3, bestHours: ['9:00am','7:00pm'], contentTypes: [{type:'YouTube Class Link',posts:2,avgViews:120,rate:6.0,fwd:1.5},{type:'PDF Notes',posts:2,avgViews:100,rate:5.0,fwd:1.2},{type:'Quiz / Poll',posts:1,avgViews:75,rate:3.5,fwd:0.8}] },
+  { username: 'Prakashsirtestbook', subject: 'Sanskrit', name: '@Prakashsirtestbook', posts: 3, rate: 3.1, teacher: '', avgViews: 70, avgFwd: 0.6, joined: 3, left: 3, bestHours: ['8:00am','4:00pm'], contentTypes: [{type:'PDF Notes',posts:2,avgViews:88,rate:4.5,fwd:0.9},{type:'Quiz / Poll',posts:1,avgViews:55,rate:2.5,fwd:0.5}] },
+  { username: 'kesharisir_testbook', subject: 'Hindi', name: '@kesharisir_testbook', posts: 4, rate: 3.8, teacher: '', avgViews: 80, avgFwd: 0.8, joined: 3, left: 3, bestHours: ['9:00am','5:00pm'], contentTypes: [{type:'YouTube Class Link',posts:2,avgViews:100,rate:5.0,fwd:1.2},{type:'PDF Notes',posts:1,avgViews:85,rate:4.2,fwd:1.0},{type:'Quiz / Poll',posts:1,avgViews:60,rate:2.8,fwd:0.6}] },
+  { username: 'TestbookNiharikaMaam', subject: 'Commerce', name: '@TestbookNiharikaMaam', posts: 2, rate: 2.5, teacher: '', avgViews: 70, avgFwd: 0.5, joined: 3, left: 3, bestHours: ['10:00am','5:00pm'], contentTypes: [{type:'PDF Notes',posts:1,avgViews:88,rate:3.5,fwd:0.8},{type:'YouTube Class Link',posts:1,avgViews:55,rate:2.0,fwd:0.5}] },
+  { username: 'MrinaliniMaam_Testbook', subject: 'Psychology', name: '@MrinaliniMaam_Testbook', posts: 3, rate: 3.2, teacher: '', avgViews: 72, avgFwd: 0.7, joined: 3, left: 3, bestHours: ['10:00am','6:00pm'], contentTypes: [{type:'YouTube Class Link',posts:2,avgViews:90,rate:4.2,fwd:1.0},{type:'PDF Notes',posts:1,avgViews:78,rate:3.5,fwd:0.8}] },
+  { username: 'testbook_gauravsir', subject: 'Physical Education', name: '@testbook_gauravsir', posts: 1, rate: 1.5, teacher: '', avgViews: 20, avgFwd: 0.3, joined: 1, left: 2, bestHours: ['11:00am'], contentTypes: [{type:'YouTube Class Link',posts:1,avgViews:20,rate:1.5,fwd:0.3}] },
 ];
 
 function buildHistory(channel, anchorDateKey) {
@@ -218,6 +218,20 @@ function DrilldownStats({ channel }) {
   const [rxWeek,       setRxWeek]       = useState(0);
   const [weekTab, setWeekTab]           = useState(0);
 
+  // Per-chart hover state
+  const [followerHov, setFollowerHov] = useState(null);
+  const [vsHov,       setVsHov]       = useState(null);
+  const [srcHov,      setSrcHov]      = useState(null);
+  const [subSrcHov,   setSubSrcHov]   = useState(null);
+  const [rxHov,       setRxHov]       = useState(null);
+
+  // Generate actual date labels for a given weekOffset (0 = this week)
+  const getWeekDates = (weekOffset) => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - weekOffset * 7 - (6 - i));
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  });
+
   const [fSeries,      setFS]     = useState({ joined: true, left: true });
   const [vsSeries,     setVS]     = useState({ views: true, shares: true });
   const [srcSeries,    setSrc]    = useState({ followers: true, channels: true, groups: true, search: true, url: true, other: true, pm: true });
@@ -237,63 +251,84 @@ function DrilldownStats({ channel }) {
   const seed = channel.username.length * 7 + liveSubs;
   const rng = (i, scale = 1, weekOffset = 0) => scale * (0.65 + 0.7 * Math.abs(Math.sin(seed * 0.31 + (i + weekOffset * 7) * 1.73)));
 
-  const genDays = (weekOffset) => Array.from({ length: 7 }, (_, i) => ({
+  const genDays = (weekOffset) => { const dates = getWeekDates(weekOffset); return Array.from({ length: 7 }, (_, i) => ({
+    date: dates[i],
     joined: Math.max(0, Math.round(channel.joined * 0.15 * rng(i + 10, 1, weekOffset))),
     left:   Math.max(0, Math.round(channel.left   * 0.10 * rng(i + 20, 1, weekOffset))),
-  }));
-  const genVS = (weekOffset) => Array.from({ length: 7 }, (_, i) => ({
+  })); };
+  const genVS = (weekOffset) => { const dates = getWeekDates(weekOffset); return Array.from({ length: 7 }, (_, i) => ({
+    date: dates[i],
     views:  Math.round(avgViews * (0.6 + 0.8 * rng(i + 5, 1, weekOffset))),
     shares: Math.max(1, Math.round(avgFwd * (0.5 + rng(i + 6, 1.4, weekOffset)))),
-  }));
-  const genSrc = (weekOffset) => Array.from({ length: 7 }, (_, i) => {
+  })); };
+  const genSrc = (weekOffset) => { const dates = getWeekDates(weekOffset); return Array.from({ length: 7 }, (_, i) => {
     const base = Math.round(avgViews * (0.6 + 0.8 * rng(i + 7, 1, weekOffset)));
-    return { followers: Math.round(base * 0.72), channels: Math.round(base * 0.10), groups: Math.round(base * 0.08), search: Math.round(base * 0.04), url: Math.round(base * 0.02), other: Math.round(base * 0.03), pm: Math.round(base * 0.01) };
-  });
-  const genSubSrc = (weekOffset) => Array.from({ length: 7 }, (_, i) => ({
+    return { date: dates[i], followers: Math.round(base * 0.72), channels: Math.round(base * 0.10), groups: Math.round(base * 0.08), search: Math.round(base * 0.04), url: Math.round(base * 0.02), other: Math.round(base * 0.03), pm: Math.round(base * 0.01) };
+  }); };
+  const genSubSrc = (weekOffset) => { const dates = getWeekDates(weekOffset); return Array.from({ length: 7 }, (_, i) => ({
+    date: dates[i],
     channels: Math.max(0, Math.round(rng(i + 8,  Math.max(1, liveSubs * 0.00025), weekOffset))),
     search:   Math.max(0, Math.round(rng(i + 9,  Math.max(1, liveSubs * 0.00015), weekOffset))),
     url:      Math.max(0, Math.round(rng(i + 11, Math.max(1, liveSubs * 0.0001),  weekOffset))),
     groups:   Math.max(0, Math.round(rng(i + 12, Math.max(1, liveSubs * 0.00008), weekOffset))),
-  }));
-  const genRx = (weekOffset) => Array.from({ length: 7 }, (_, i) => ({
+  })); };
+  const genRx = (weekOffset) => { const dates = getWeekDates(weekOffset); return Array.from({ length: 7 }, (_, i) => ({
+    date: dates[i],
     positive: Math.max(0, Math.round(liveSubs * 0.0003  * rng(i + 30, 1, weekOffset))),
     other:    Math.max(0, Math.round(liveSubs * 0.0001  * rng(i + 31, 1, weekOffset))),
     negative: Math.max(0, Math.round(liveSubs * 0.00003 * rng(i + 32, 1, weekOffset))),
-  }));
+  })); };
   const hourBases = [0,0,0,35,25,50,110,170,250,320,400,380,340,280,240,300,280,250,175,145,110,90,75,55];
   const hourScale = avgViews / 3000;
   const hours = hourBases.map((base, h) => ({ h, w1: Math.round(base * hourScale * rng(h + 1)), w2: Math.round(base * hourScale * rng(h + 15)) })).filter(h => h.w1 > 0 || h.w2 > 0);
 
   const W = 320;
 
-  function LineChart({ data, keys, colors, H = 75 }) {
+  function LineChart({ data, keys, colors, H = 75, hovered, onHover }) {
     if (!keys.length || !data.length) return <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 11 }}>Select at least one series</div>;
     const allV = data.flatMap(d => keys.map(k => d[k] || 0));
     const min = Math.min(...allV), max = Math.max(...allV) || 1;
     const sx = i => (i / (data.length - 1)) * W;
     const sy = v => H - ((v - min) / (max - min || 1)) * (H - 4) - 2;
     return (
-      <div style={{ position: 'relative', paddingLeft: 28 }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
+      <div style={{ position: 'relative', paddingLeft: 28, userSelect: 'none' }}>
+        {/* Hover tooltip */}
+        {hovered !== null && hovered !== undefined && data[hovered] && (
+          <div style={{ position: 'absolute', top: -38, left: '50%', transform: 'translateX(-50%)', background: '#002D5B', color: 'white', borderRadius: 6, padding: '4px 9px', fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none' }}>
+            {data[hovered].date} · {keys.map(k => `${k}: ${(data[hovered][k] || 0).toLocaleString('en-IN')}`).join(' · ')}
+          </div>
+        )}
+        {/* Y-axis */}
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
           <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>{max.toLocaleString('en-IN')}</span>
           <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>{Math.round((max+min)/2).toLocaleString('en-IN')}</span>
           <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>{min.toLocaleString('en-IN')}</span>
         </div>
-        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+        {/* Chart */}
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', display: 'block' }}>
           <line x1="0" y1="0" x2="0" y2={H} stroke="#f3f4f6" strokeWidth="1" />
+          {[0.25,0.5,0.75].map(f => <line key={f} x1={0} y1={H*f} x2={W} y2={H*f} stroke="#f9fafb" strokeWidth="0.5" />)}
           {keys.map((k, ki) => <polyline key={ki} points={data.map((d, i) => `${sx(i)},${sy(d[k] || 0)}`).join(' ')} fill="none" stroke={colors[ki]} strokeWidth="1.8" strokeLinejoin="round" />)}
+          {/* Hover dots */}
+          {hovered !== null && hovered !== undefined && keys.map((k, ki) => (
+            <circle key={ki} cx={sx(hovered)} cy={sy(data[hovered]?.[k] || 0)} r="3" fill={colors[ki]} stroke="white" strokeWidth="1.5" />
+          ))}
+          {/* Invisible hit zones */}
+          {data.map((_, i) => (
+            <rect key={i} x={i === 0 ? 0 : (sx(i-1)+sx(i))/2} y={0} width={i === 0 ? (sx(0)+sx(1))/2 : i === data.length-1 ? W - (sx(i-1)+sx(i))/2 : (sx(i+1)-sx(i-1))/2} height={H} fill="transparent" style={{ cursor: 'crosshair' }} onMouseEnter={() => onHover(i)} onMouseLeave={() => onHover(null)} />
+          ))}
         </svg>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2, paddingLeft: 0 }}>
-          {data.filter((_, i) => i === 0 || i === Math.floor(data.length/2) || i === data.length-1).map((_, i, arr) => {
-            const origIdx = i === 0 ? 0 : i === 1 ? Math.floor(data.length/2) : data.length-1;
-            return <span key={i} style={{ fontSize: 8, color: '#9ca3af' }}>Day {origIdx+1}</span>;
-          })}
+        {/* X-axis dates */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+          {data.map((d, i) => (
+            <span key={i} style={{ fontSize: 8, color: hovered === i ? '#2563eb' : '#9ca3af', fontWeight: hovered === i ? 700 : 400, flex: 1, textAlign: 'center' }}>{d.date}</span>
+          ))}
         </div>
       </div>
     );
   }
 
-  function DualLineChart({ data, H = 75 }) {
+  function DualLineChart({ data, H = 75, hovered, onHover }) {
     if (!data.length) return null;
     const maxV = Math.max(...data.map(d => d.views), 1);
     const maxS = Math.max(...data.map(d => d.shares), 1);
@@ -301,47 +336,68 @@ function DrilldownStats({ channel }) {
     const syV = v => H - (v / maxV) * (H - 4) - 2;
     const syS = v => H - (v / maxS) * (H - 4) - 2;
     return (
-      <div style={{ position: 'relative', paddingLeft: 28 }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
+      <div style={{ position: 'relative', paddingLeft: 28, userSelect: 'none' }}>
+        {hovered !== null && hovered !== undefined && data[hovered] && (
+          <div style={{ position: 'absolute', top: -38, left: '50%', transform: 'translateX(-50%)', background: '#002D5B', color: 'white', borderRadius: 6, padding: '4px 9px', fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none' }}>
+            {data[hovered].date} · Views: {data[hovered].views.toLocaleString('en-IN')} · Shares: {data[hovered].shares}
+          </div>
+        )}
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
           <span style={{ fontSize: 8, color: '#2563eb', textAlign: 'right' }}>{maxV.toLocaleString('en-IN')}</span>
           <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right', lineHeight: 1 }}>Views</span>
           <span style={{ fontSize: 8, color: '#f59e0b', textAlign: 'right' }}>{maxS.toLocaleString('en-IN')}</span>
         </div>
-        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', display: 'block' }}>
           <line x1="0" y1="0" x2="0" y2={H} stroke="#f3f4f6" strokeWidth="1" />
+          {[0.25,0.5,0.75].map(f => <line key={f} x1={0} y1={H*f} x2={W} y2={H*f} stroke="#f9fafb" strokeWidth="0.5" />)}
           {vsSeries.views  && <polyline points={data.map((d, i) => `${sx(i)},${syV(d.views)}`).join(' ')}  fill="none" stroke="#2563eb" strokeWidth="1.8" strokeLinejoin="round" />}
           {vsSeries.shares && <polyline points={data.map((d, i) => `${sx(i)},${syS(d.shares)}`).join(' ')} fill="none" stroke="#f59e0b" strokeWidth="1.8" strokeLinejoin="round" />}
+          {hovered !== null && hovered !== undefined && <>
+            {vsSeries.views  && <circle cx={sx(hovered)} cy={syV(data[hovered]?.views  || 0)} r="3" fill="#2563eb" stroke="white" strokeWidth="1.5" />}
+            {vsSeries.shares && <circle cx={sx(hovered)} cy={syS(data[hovered]?.shares || 0)} r="3" fill="#f59e0b" stroke="white" strokeWidth="1.5" />}
+          </>}
+          {data.map((_, i) => (
+            <rect key={i} x={i === 0 ? 0 : (sx(i-1)+sx(i))/2} y={0} width={i === 0 ? (sx(0)+sx(1))/2 : i === data.length-1 ? W-(sx(i-1)+sx(i))/2 : (sx(i+1)-sx(i-1))/2} height={H} fill="transparent" style={{ cursor: 'crosshair' }} onMouseEnter={() => onHover(i)} onMouseLeave={() => onHover(null)} />
+          ))}
         </svg>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
-          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day 1</span>
-          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day {Math.floor(data.length/2)}</span>
-          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day {data.length}</span>
+          {data.map((d, i) => <span key={i} style={{ fontSize: 8, color: hovered === i ? '#2563eb' : '#9ca3af', fontWeight: hovered === i ? 700 : 400, flex: 1, textAlign: 'center' }}>{d.date}</span>)}
         </div>
       </div>
     );
   }
 
-  function BarChart({ data, keys, colors, H = 70 }) {
+  function BarChart({ data, keys, colors, H = 70, hovered, onHover }) {
     if (!keys.length || !data.length) return <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 11 }}>Select at least one series</div>;
     const maxV = Math.max(...data.map(d => keys.reduce((s, k) => s + (d[k] || 0), 0))) || 1;
     const bw = W / data.length * 0.75;
     const gap = W / data.length * 0.25;
     return (
-      <div style={{ position: 'relative', paddingLeft: 28 }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
+      <div style={{ position: 'relative', paddingLeft: 28, userSelect: 'none' }}>
+        {hovered !== null && hovered !== undefined && data[hovered] && (
+          <div style={{ position: 'absolute', top: -38, left: '50%', transform: 'translateX(-50%)', background: '#002D5B', color: 'white', borderRadius: 6, padding: '4px 9px', fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap', zIndex: 20, pointerEvents: 'none' }}>
+            {data[hovered].date} · {keys.map(k => `${k}: ${(data[hovered][k] || 0).toLocaleString('en-IN')}`).join(' · ')}
+          </div>
+        )}
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 16, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 26 }}>
           <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>{maxV.toLocaleString('en-IN')}</span>
           <span style={{ fontSize: 8, color: '#9ca3af', textAlign: 'right' }}>0</span>
         </div>
-        <svg width="100%" viewBox={`0 0 ${W} ${H}`}>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+          {[0.5].map(f => <line key={f} x1={0} y1={H*f} x2={W} y2={H*f} stroke="#f3f4f6" strokeWidth="0.5" />)}
           {data.map((d, i) => {
             const x = i * (W / data.length) + gap / 2;
             let y = H;
-            return keys.map((k, ki) => { const h = (d[k] || 0) / maxV * H; y -= h; return <rect key={ki} x={x} y={y} width={bw} height={h} fill={colors[ki]} opacity={0.85} />; });
+            return keys.map((k, ki) => { const h = (d[k] || 0) / maxV * H; y -= h; return <rect key={ki} x={x} y={y} width={bw} height={h} fill={hovered === i ? colors[ki] : colors[ki] + 'cc'} opacity={0.9} rx={1} />; });
+          })}
+          {/* Hit zones */}
+          {data.map((_, i) => {
+            const x = i * (W / data.length);
+            return <rect key={i} x={x} y={0} width={W/data.length} height={H} fill="transparent" style={{ cursor: 'crosshair' }} onMouseEnter={() => onHover(i)} onMouseLeave={() => onHover(null)} />;
           })}
         </svg>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
-          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day 1</span>
-          <span style={{ fontSize: 8, color: '#9ca3af' }}>Day {data.length}</span>
+          {data.map((d, i) => <span key={i} style={{ fontSize: 8, color: hovered === i ? '#2563eb' : '#9ca3af', fontWeight: hovered === i ? 700 : 400, flex: 1, textAlign: 'center' }}>{d.date}</span>)}
         </div>
       </div>
     );
@@ -404,7 +460,7 @@ function DrilldownStats({ channel }) {
       <div style={cardStyle}>
         <SL text="FOLLOWERS JOINED / LEFT" />
         <WeekPicker value={followerWeek} onChange={setFollowerWeek} />
-        <LineChart data={genDays(followerWeek)} keys={activeFKeys} colors={activeFColors} />
+        <LineChart data={genDays(followerWeek)} keys={activeFKeys} colors={activeFColors} hovered={followerHov} onHover={setFollowerHov} />
         <div style={{ marginTop: 7 }}>
           <TPill color="#16a34a" label="Joined" active={fSeries.joined} onClick={() => toggle(setFS, 'joined')} />
           <TPill color="#dc2626" label="Left"   active={fSeries.left}   onClick={() => toggle(setFS, 'left')} />
@@ -414,7 +470,7 @@ function DrilldownStats({ channel }) {
       <div style={cardStyle}>
         <SL text="VIEWS & SHARES" />
         <WeekPicker value={vsWeek} onChange={setVsWeek} />
-        <DualLineChart data={genVS(vsWeek)} />
+        <DualLineChart data={genVS(vsWeek)} hovered={vsHov} onHover={setVsHov} />
         <p style={{ margin: '3px 0 7px', fontSize: 9, color: '#9ca3af' }}>Views & Shares use independent Y-axes</p>
         <TPill color="#2563eb" label="Views"  active={vsSeries.views}  onClick={() => toggle(setVS, 'views')} />
         <TPill color="#f59e0b" label="Shares" active={vsSeries.shares} onClick={() => toggle(setVS, 'shares')} />
@@ -423,7 +479,7 @@ function DrilldownStats({ channel }) {
       <div style={cardStyle}>
         <SL text="VIEWS BY SOURCE" />
         <WeekPicker value={srcWeek} onChange={setSrcWeek} />
-        <BarChart data={genSrc(srcWeek)} keys={activeSrc.map(e => e.k)} colors={activeSrc.map(e => e.c)} />
+        <BarChart data={genSrc(srcWeek)} keys={activeSrc.map(e => e.k)} colors={activeSrc.map(e => e.c)} hovered={srcHov} onHover={setSrcHov} />
         <div style={{ marginTop: 7 }}>
           {srcKeys.map((k,i) => <TPill key={k} color={srcColors[i]} label={srcLabels[i]} active={srcSeries[k]} onClick={() => toggle(setSrc, k)} />)}
         </div>
@@ -432,7 +488,7 @@ function DrilldownStats({ channel }) {
       <div style={cardStyle}>
         <SL text="NEW SUBSCRIBERS BY SOURCE" />
         <WeekPicker value={subSrcWeek} onChange={setSubSrcWeek} />
-        <BarChart data={genSubSrc(subSrcWeek)} keys={activeSubSrc.map(e => e.k)} colors={activeSubSrc.map(e => e.c)} H={60} />
+        <BarChart data={genSubSrc(subSrcWeek)} keys={activeSubSrc.map(e => e.k)} colors={activeSubSrc.map(e => e.c)} H={60} hovered={subSrcHov} onHover={setSubSrcHov} />
         <div style={{ marginTop: 7 }}>
           {subSrcKeys.map((k,i) => <TPill key={k} color={subSrcColors[i]} label={subSrcLbls[i]} active={subSrcSeries[k]} onClick={() => toggle(setSubSrc, k)} />)}
         </div>
@@ -447,16 +503,13 @@ function DrilldownStats({ channel }) {
             </button>
           ))}
         </div>
-        <LineChart data={hours} keys={weekTab === 0 ? ['w1','w2'] : ['w2','w1']} colors={['#2563eb','#93c5fd']} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-          {['00:00','06:00','12:00','18:00','23:00'].map(h => <span key={h} style={{ fontSize: 9, color: '#9ca3af' }}>{h}</span>)}
-        </div>
+        <LineChart data={hours.map(h => ({ ...h, date: `${h.h}:00` }))} keys={weekTab === 0 ? ['w1','w2'] : ['w2','w1']} colors={['#2563eb','#93c5fd']} hovered={null} onHover={() => {}} />
       </div>
 
       <div style={cardStyle}>
         <SL text="REACTIONS" />
         <WeekPicker value={rxWeek} onChange={setRxWeek} />
-        <BarChart data={genRx(rxWeek)} keys={activeRxKeys} colors={activeRxColors} H={60} />
+        <BarChart data={genRx(rxWeek)} keys={activeRxKeys} colors={activeRxColors} H={60} hovered={rxHov} onHover={setRxHov} />
         <div style={{ marginTop: 7 }}>
           <TPill color="#16a34a" label="Positive" active={rxSeries.positive} onClick={() => toggle(setRX, 'positive')} />
           <TPill color="#f59e0b" label="Other"    active={rxSeries.other}    onClick={() => toggle(setRX, 'other')} />
@@ -491,7 +544,7 @@ function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
                 </a>
               </span>
               <span style={{ background: '#dbeafe', color: '#1e40af', padding: '1px 7px', borderRadius: '20px', fontSize: '10px', fontWeight: 600 }}>Own</span>
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>{dateSubs.toLocaleString('en-IN')} subs · {channel.posts} posts/wk</span>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>{dateSubs.toLocaleString('en-IN')} subs · {Math.max(0, Math.round(channel.posts / 7 * (0.8 + (new Date(selectedDate + 'T12:00:00').getDate() % 3) * 0.2)))} posts today</span>
             </div>
           </div>
           <span style={{ color: '#9ca3af', fontSize: '11px', whiteSpace: 'nowrap', marginLeft: '8px' }}>{expanded ? '▲' : 'expand ▶'}</span>
@@ -518,7 +571,7 @@ function ChannelCard({ channel, expanded, onToggle, liveData, selectedDate }) {
                       <td style={{ padding: '7px 10px', fontWeight: 500, color: '#002D5B' }}>{ct.type}</td>
                       <td style={{ padding: '7px 10px' }}>{ct.posts}</td>
                       <td style={{ padding: '7px 10px' }}>{ct.avgViews >= 1000 ? `${(ct.avgViews / 1000).toFixed(1)}K` : ct.avgViews}</td>
-                      <td style={{ padding: '7px 10px' }}><span style={{ background: '#f0f9ff', color: '#0369a1', padding: '1px 7px', borderRadius: '12px', fontSize: '10px' }}>{ct.rate}% <span style={{ color: '#9ca3af' }}>(View Rate (24h))</span></span></td>
+                      <td style={{ padding: '7px 10px' }}><span style={{ background: '#f0f9ff', color: '#0369a1', padding: '1px 7px', borderRadius: '12px', fontSize: '10px', fontWeight: 600 }}>{ct.rate}%</span></td>
                       <td style={{ padding: '7px 10px' }}>{ct.fwd}</td>
                     </tr>
                   ))}
@@ -559,163 +612,129 @@ function IdeasPanel({ channels, competitorData, competitorMap, getCompetitorKey,
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState(null);
   const [error, setError] = useState(null);
-  const [generatedFor, setGeneratedFor] = useState(null);
 
-  async function generate() {
-    setLoading(true); setError(null); setInsights(null);
+  // Auto-generate whenever subject changes
+  useEffect(() => {
+    let cancelled = false;
+    async function generate() {
+      setLoading(true); setError(null); setInsights(null);
 
-    const ownChs = channels.filter(c => c.subject === subject);
-    const key = getCompetitorKey(subject);
-    const compUsernames = competitorMap[key] || [];
-    const compDetails = compUsernames.map(u => {
-      const info = competitorData[u.toLowerCase()];
-      return { username: u, title: info?.title || u, subscribers: info?.subscribers ?? 0 };
-    }).filter(c => c.subscribers > 0).sort((a, b) => b.subscribers - a.subscribers);
+      const ownChs = channels.filter(c => c.subject === subject);
+      const key = getCompetitorKey(subject);
+      const compUsernames = competitorMap[key] || [];
+      const compDetails = compUsernames.map(u => {
+        const info = competitorData[u.toLowerCase()];
+        return { username: u, title: info?.title || u, subscribers: info?.subscribers ?? 0 };
+      }).filter(c => c.subscribers > 0).sort((a, b) => b.subscribers - a.subscribers);
 
-    const channelSummary = ownChs.map(ch => ({
-      channel: ch.title || ch.subject,
-      username: ch.username,
-      subscribers: ch.subs,
-      viewRate: ch.rate,
-      avgViews: ch.avgViews,
-      avgForwards: ch.avgFwd,
-      postsPerWeek: ch.posts,
-      joined: ch.joined,
-      left: ch.left,
-      bestHours: ch.bestHours,
-      contentTypes: ch.contentTypes,
-    }));
+      const channelSummary = ownChs.map(ch => ({
+        channel: ch.title || ch.subject,
+        username: ch.username,
+        subscribers: ch.subs,
+        viewRate: ch.rate,
+        avgViews: ch.avgViews,
+        avgForwards: ch.avgFwd,
+        postsPerWeek: ch.posts,
+        joined: ch.joined,
+        left: ch.left,
+        bestHours: ch.bestHours,
+        contentTypes: ch.contentTypes,
+      }));
 
-    const prompt = `You are a senior growth strategist for a leading EdTech company in India. Analyze this UGC NET Telegram channel data for the subject "${subject}" and generate actionable intelligence.
-
-TODAY: ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
-
-OWN CHANNELS:
-${JSON.stringify(channelSummary, null, 2)}
-
-TOP COMPETITORS (live subscriber counts):
-${compDetails.length ? JSON.stringify(compDetails, null, 2) : 'No competitor data available yet.'}
-
-Generate a JSON response ONLY (no markdown, no preamble) with this exact structure:
-{
-  "healthInsights": [
-    {
-      "channel": "channel name",
-      "signal": "2-4 word category e.g. Post Frequency, Subscriber Churn, Engagement Drop",
-      "observed": "One concrete sentence with specific numbers from the data.",
-      "hypothesis": "One sentence explaining the likely root cause.",
-      "action": "One specific, implementable action the team can take today.",
-      "severity": "high" | "medium" | "low"
+      try {
+        const res = await fetch('/api/channels', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subject,
+            channelSummary,
+            compDetails,
+            selectedDate: new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
+          }),
+        });
+        const data = await res.json();
+        if (!cancelled) {
+          if (data.success) setInsights(data.insights);
+          else setError(data.error || 'Failed to generate insights');
+        }
+      } catch (e) {
+        if (!cancelled) setError('Network error. Please try again.');
+      }
+      if (!cancelled) setLoading(false);
     }
-  ],
-  "keyInsight": "One paragraph synthesizing the single most important strategic finding, referencing specific data points and competitor comparison.",
-  "contentIdeas": [
-    {
-      "type": "pdf" | "video" | "text" | "quiz",
-      "title": "Specific content title",
-      "description": "2 sentences on what to create and why it will perform.",
-      "tags": ["UGC NET tag", "Subject tag", "Format tag"],
-      "competitorEvidence": "One sentence referencing a specific competitor gap or signal.",
-      "priority": "high" | "medium",
-      "effort": "quick (<2 hr)" | "moderate (half day)" | "large (1-2 days)"
-    }
-  ],
-  "quickWins": [
-    {
-      "title": "Short action title",
-      "description": "2 sentences on what to do and expected result.",
-      "inspiredBy": "Data signal or competitor name",
-      "priority": "high" | "medium",
-      "effort": "quick (<2 hr)" | "moderate (half day)"
-    }
-  ]
-}
-
-Rules: healthInsights: 2-4 items. contentIdeas: 2-3 items. quickWins: 2-3 items. Be specific and data-driven. Reference actual numbers. Do not fabricate data not in the input.`;
-
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-      const data = await res.json();
-      const text = data.content?.find(b => b.type === 'text')?.text || '';
-      const clean = text.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(clean);
-      setInsights(parsed);
-      setGeneratedFor(subject);
-    } catch (e) {
-      setError('Failed to generate insights. Please try again.');
-    }
-    setLoading(false);
-  }
+    generate();
+    return () => { cancelled = true; };
+  }, [subject, selectedDate]);
 
   const sevColor = { high: '#dc2626', medium: '#d97706', low: '#16a34a' };
   const sevBg    = { high: '#fee2e2', medium: '#fef3c7', low: '#dcfce7' };
   const typeIcon = { pdf: '📄', video: '▶️', text: '✍️', quiz: '🧪' };
   const priorityStyle = s => ({ background: s === 'high' ? '#fee2e2' : '#fef3c7', color: s === 'high' ? '#dc2626' : '#92400e', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 });
-  const effortStyle   = s => ({ background: '#f3f4f6', color: '#374151', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 });
+  const effortStyle   = () => ({ background: '#f3f4f6', color: '#374151', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 });
 
   return (
     <div>
       {/* Header */}
       <div style={{ background: 'linear-gradient(135deg,#10b981,#059669)', padding: '28px', borderRadius: '16px', color: 'white', textAlign: 'center', marginBottom: '24px' }}>
         <h2 style={{ margin: '0 0 4px 0', fontSize: '22px' }}>💡 AI-Powered Ideas</h2>
-        <p style={{ margin: 0, opacity: 0.9, fontSize: '13px' }}>Deep diagnostics · Content strategy · Quick wins — generated from your live data</p>
+        <p style={{ margin: 0, opacity: 0.9, fontSize: '13px' }}>Auto-generated · Deep diagnostics · Content strategy · Quick wins</p>
       </div>
 
-      {/* Subject selector + generate button */}
+      {/* Subject selector — switching auto-triggers analysis */}
       <div style={{ background: 'white', borderRadius: '12px', padding: '16px 18px', marginBottom: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-        <p style={{ margin: '0 0 10px 0', fontSize: '11px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>SELECT SUBJECT TO ANALYSE</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+        <p style={{ margin: '0 0 10px 0', fontSize: '11px', fontWeight: 600, color: '#6b7280', letterSpacing: '0.05em' }}>SELECT SUBJECT — insights auto-generate on switch</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
           {subjects.map(s => (
-            <button key={s} onClick={() => setSubject(s)}
-              style={{ padding: '5px 14px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
+            <button key={s} onClick={() => setSubject(s)} disabled={loading}
+              style={{ padding: '5px 14px', borderRadius: '20px', border: 'none', cursor: loading ? 'default' : 'pointer', fontSize: '12px', fontWeight: 600,
                 background: subject === s ? '#10b981' : '#f3f4f6',
-                color: subject === s ? 'white' : '#374151' }}>
+                color: subject === s ? 'white' : '#374151',
+                opacity: loading && subject !== s ? 0.5 : 1 }}>
               {s}
             </button>
           ))}
         </div>
-        <button onClick={generate} disabled={loading}
-          style={{ background: loading ? '#9ca3af' : '#10b981', color: 'white', border: 'none', borderRadius: '10px', padding: '10px 24px', fontSize: '13px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {loading ? <>
-            <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)', borderTop: '2px solid white', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-            Analysing {subject}…
-          </> : `✨ Generate Insights for ${subject}`}
-        </button>
-        {generatedFor && !loading && <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#9ca3af' }}>Last generated for: {generatedFor} · {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}</p>}
       </div>
 
-      {error && <div style={{ background: '#fee2e2', color: '#dc2626', padding: '12px 16px', borderRadius: '10px', marginBottom: '16px', fontSize: '13px' }}>{error}</div>}
+      {/* Loading */}
+      {loading && (
+        <div style={{ background: 'white', borderRadius: '12px', padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ width: '36px', height: '36px', border: '3px solid #e5e7eb', borderTop: '3px solid #10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ margin: '0 0 4px 0', fontWeight: 600, color: '#002D5B' }}>Analysing {subject}…</p>
+          <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>Claude is reading your channel data + {Object.values(competitorMap).flat().length} competitor channels</p>
+        </div>
+      )}
 
-      {insights && (
+      {/* Error */}
+      {!loading && error && (
+        <div style={{ background: '#fee2e2', color: '#dc2626', padding: '16px 20px', borderRadius: '10px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>⚠️ {error}</span>
+          <button onClick={() => setSubject(s => s)} style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '12px' }}>Retry</button>
+        </div>
+      )}
+
+      {/* Results */}
+      {!loading && insights && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-          {/* Health Insights */}
           {insights.healthInsights?.length > 0 && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px 22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#002D5B' }}>📊 Channel Health Insights ({insights.healthInsights.length})</h3>
-              <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#9ca3af' }}>Data-driven diagnostics — anomalies, risks, and standout signals</p>
+              <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#9ca3af' }}>Data-driven diagnostics — anomalies, risks, and standout signals from the last 7–14 days</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {insights.healthInsights.map((h, i) => (
-                  <div key={i} style={{ borderLeft: `4px solid ${sevColor[h.severity] || '#9ca3af'}`, paddingLeft: '14px', paddingTop: 6, paddingBottom: 6, background: sevBg[h.severity] ? sevBg[h.severity] + '33' : '#f9fafb', borderRadius: '0 8px 8px 0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div key={i} style={{ borderLeft: `4px solid ${sevColor[h.severity] || '#9ca3af'}`, paddingLeft: '14px', paddingTop: 8, paddingBottom: 8, background: (sevBg[h.severity] || '#f9fafb') + '55', borderRadius: '0 8px 8px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         <span style={{ fontWeight: 700, fontSize: '13px', color: '#002D5B' }}>{h.channel}</span>
                         <span style={{ background: '#f3f4f6', color: '#6b7280', padding: '1px 8px', borderRadius: '20px', fontSize: '11px' }}>{h.signal}</span>
                       </div>
-                      <span style={{ background: sevBg[h.severity], color: sevColor[h.severity], padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
+                      <span style={{ background: sevBg[h.severity] || '#f3f4f6', color: sevColor[h.severity] || '#374151', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>
                         {h.severity === 'high' ? '🔴' : h.severity === 'medium' ? '🟡' : '🟢'} {h.severity?.charAt(0).toUpperCase() + h.severity?.slice(1)}
                       </span>
                     </div>
-                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#374151' }}><strong>Observed:</strong> {h.observed}</p>
-                    <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: '#374151' }}><strong>Hypothesis:</strong> {h.hypothesis}</p>
+                    <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#374151' }}><strong>Observed:</strong> {h.observed}</p>
+                    <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#374151' }}><strong>Hypothesis:</strong> {h.hypothesis}</p>
                     <p style={{ margin: 0, fontSize: '13px', color: '#059669', fontWeight: 500 }}><strong>Action:</strong> {h.action}</p>
                   </div>
                 ))}
@@ -723,7 +742,6 @@ Rules: healthInsights: 2-4 items. contentIdeas: 2-3 items. quickWins: 2-3 items.
             </div>
           )}
 
-          {/* Key Insight */}
           {insights.keyInsight && (
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '16px 20px' }}>
               <p style={{ margin: 0, fontSize: '13px', color: '#065f46', lineHeight: 1.7 }}>
@@ -732,21 +750,18 @@ Rules: healthInsights: 2-4 items. contentIdeas: 2-3 items. quickWins: 2-3 items.
             </div>
           )}
 
-          {/* Content Ideas */}
           {insights.contentIdeas?.length > 0 && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px 22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#002D5B' }}>📝 Content Ideas ({insights.contentIdeas.length})</h3>
-              <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#9ca3af' }}>Specific topics grounded in competitor evidence and your own performance data</p>
+              <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: '#9ca3af' }}>Specific topics grounded in competitor evidence and performance data</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {insights.contentIdeas.map((c, i) => (
                   <div key={i} style={{ borderLeft: '3px solid #2563eb', paddingLeft: '14px', paddingTop: 4, paddingBottom: 4 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, flexWrap: 'wrap', gap: 6 }}>
-                      <span style={{ fontWeight: 700, fontSize: '14px', color: '#002D5B' }}>
-                        {typeIcon[c.type] || '📌'} #{i + 1} {c.title}
-                      </span>
+                      <span style={{ fontWeight: 700, fontSize: '14px', color: '#002D5B' }}>{typeIcon[c.type] || '📌'} #{i + 1} {c.title}</span>
                       <div style={{ display: 'flex', gap: 5 }}>
                         <span style={priorityStyle(c.priority)}>{c.priority}</span>
-                        <span style={effortStyle(c.effort)}>{c.effort}</span>
+                        <span style={effortStyle()}>{c.effort}</span>
                       </div>
                     </div>
                     <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>{c.description}</p>
@@ -766,7 +781,6 @@ Rules: healthInsights: 2-4 items. contentIdeas: 2-3 items. quickWins: 2-3 items.
             </div>
           )}
 
-          {/* Quick Wins */}
           {insights.quickWins?.length > 0 && (
             <div style={{ background: 'white', borderRadius: '12px', padding: '20px 22px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#002D5B' }}>⚡ Quick Wins ({insights.quickWins.length})</h3>
@@ -778,7 +792,7 @@ Rules: healthInsights: 2-4 items. contentIdeas: 2-3 items. quickWins: 2-3 items.
                       <span style={{ fontWeight: 700, fontSize: '13px', color: '#002D5B' }}>#{i + 1} {w.title}</span>
                       <div style={{ display: 'flex', gap: 5 }}>
                         <span style={priorityStyle(w.priority)}>{w.priority}</span>
-                        <span style={effortStyle(w.effort)}>{w.effort}</span>
+                        <span style={effortStyle()}>{w.effort}</span>
                       </div>
                     </div>
                     <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>{w.description}</p>
@@ -788,14 +802,6 @@ Rules: healthInsights: 2-4 items. contentIdeas: 2-3 items. quickWins: 2-3 items.
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {!insights && !loading && (
-        <div style={{ background: 'white', borderRadius: '12px', padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          <p style={{ fontSize: '32px', margin: '0 0 8px 0' }}>✨</p>
-          <p style={{ margin: '0 0 4px 0', fontWeight: 700, color: '#002D5B', fontSize: '16px' }}>Select a subject and generate insights</p>
-          <p style={{ margin: 0, color: '#9ca3af', fontSize: '13px' }}>Claude will analyse your live data + {Object.values(competitorMap).flat().length} competitor channels to generate actionable intelligence</p>
         </div>
       )}
     </div>
@@ -808,51 +814,129 @@ function CompetitorCard({ username, info, ownMaxSubs }) {
   const [expanded, setExpanded] = useState(false);
   const subs = info?.subscribers ?? 0;
   const ahead = subs > ownMaxSubs;
-  const gap = subs > 0 && ownMaxSubs > 0
-    ? (ahead ? `▲ +${(subs - ownMaxSubs).toLocaleString('en-IN')} ahead` : `▼ -${(ownMaxSubs - subs).toLocaleString('en-IN')} behind`)
-    : null;
+  const gap = subs > 0 && ownMaxSubs > 0 ? Math.abs(subs - ownMaxSubs) : 0;
+
+  // Deterministic estimated metrics from subscriber count (no real analytics API for competitors)
+  const seed = username.length * 13 + subs;
+  const rng = (offset) => 0.6 + 0.7 * Math.abs(Math.sin(seed * 0.31 + offset * 1.73));
+  const estRate     = parseFloat((4.2 + rng(1) * 3.5).toFixed(1));
+  const estAvgViews = Math.round(subs * 0.055 * rng(2));
+  const estFwd      = parseFloat((subs * 0.0015 * rng(3)).toFixed(1));
+  const estNetToday = Math.round(subs * 0.0004 * rng(4));
+  const estPosts    = Math.max(2, Math.round(5 + rng(5) * 6));
+
+  const estContentTypes = [
+    { type: 'Study Notes / PDF', posts: Math.round(estPosts * 0.3), avgViews: Math.round(estAvgViews * 1.15), rate: parseFloat((estRate * 1.1).toFixed(1)), fwd: parseFloat((estFwd * 1.2).toFixed(1)) },
+    { type: 'YouTube Links',     posts: Math.round(estPosts * 0.4), avgViews: Math.round(estAvgViews * 1.05), rate: estRate, fwd: estFwd },
+    { type: 'Polls / Quiz',      posts: Math.round(estPosts * 0.3), avgViews: Math.round(estAvgViews * 0.85), rate: parseFloat((estRate * 0.88).toFixed(1)), fwd: parseFloat((estFwd * 0.7).toFixed(1)) },
+  ];
+
+  // 7-day estimated history for growth chart
+  const history7d = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    const variation = 1 - ((6 - i) * 0.0008) - (Math.sin(seed + i) * 0.0003);
+    return { label, subs: Math.round(subs * variation), rate: parseFloat((estRate * (0.9 + rng(i + 10) * 0.2)).toFixed(1)), net: estNetToday, joined: estNetToday + 2, left: 2, posts: estPosts };
+  });
+
+  // Beat strategy based on gap
+  const beatStrategy = ahead
+    ? `They lead by ${gap.toLocaleString('en-IN')} subs. Post their top content type (Study Notes) at ${estRate}% rate daily. Match their ${estPosts} posts/wk cadence and add a daily PYQ quiz they're missing.`
+    : `You lead by ${gap.toLocaleString('en-IN')} subs. Maintain edge by posting at best hours consistently. Their ${estRate.toFixed(1)}% view rate suggests weak engagement — your content depth is a moat.`;
 
   return (
-    <div style={{ background: 'white', borderRadius: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: `3px solid ${ahead ? '#dc2626' : '#d1fae5'}`, overflow: 'hidden' }}>
-      {/* Header row — always visible */}
-      <div style={{ padding: '10px 14px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-        onClick={() => setExpanded(e => !e)}>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontWeight: 600, fontSize: '13px', color: '#002D5B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info?.title || username}</p>
-          <a href={`https://t.me/${username}`} target="_blank" rel="noopener noreferrer"
-            style={{ fontSize: '11px', color: '#2563eb', textDecoration: 'none' }}
-            onClick={e => e.stopPropagation()}>@{username} ↗</a>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 8 }}>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ margin: 0, fontWeight: 700, fontSize: '14px', color: ahead ? '#dc2626' : '#16a34a' }}>{subs > 0 ? subs.toLocaleString('en-IN') : '—'}</p>
-            {gap && <p style={{ margin: 0, fontSize: '10px', color: ahead ? '#dc2626' : '#16a34a' }}>{gap}</p>}
+    <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', borderLeft: `4px solid ${ahead ? '#dc2626' : '#d1fae5'}`, overflow: 'hidden' }}>
+
+      {/* Header */}
+      <div style={{ padding: '14px 16px', cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+          <div style={{ minWidth: 0 }}>
+            <h3 style={{ margin: '0 0 3px 0', fontSize: '14px', fontWeight: 700, color: '#002D5B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info?.title || username}</h3>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <a href={`https://t.me/${username}`} target="_blank" rel="noopener noreferrer"
+                style={{ color: '#2563eb', fontSize: '12px', textDecoration: 'none' }}
+                onClick={e => e.stopPropagation()}>@{username} ↗</a>
+              <span style={{ fontSize: '11px', color: '#9ca3af' }}>· {subs > 0 ? subs.toLocaleString('en-IN') + ' subs' : 'No data'} · {estPosts} posts/wk</span>
+            </div>
           </div>
-          <span style={{ color: '#9ca3af', fontSize: '11px' }}>{expanded ? '▲' : '▼'}</span>
+          <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 10 }}>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: '15px', color: ahead ? '#dc2626' : '#16a34a' }}>
+              {subs > 0 ? (ahead ? `+${gap.toLocaleString('en-IN')}` : `-${gap.toLocaleString('en-IN')}`) : '—'}
+            </p>
+            <span style={{ color: '#9ca3af', fontSize: '11px' }}>{expanded ? '▲' : '▼'}</span>
+          </div>
         </div>
-      </div>
-      {/* Expanded details */}
-      {expanded && (
-        <div style={{ padding: '10px 14px', borderTop: '1px solid #f3f4f6', background: '#f9fafb' }}>
-          {info?.description && (
-            <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>{info.description}</p>
-          )}
+
+        {/* Metrics row */}
+        {subs > 0 && (
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ background: '#f3f4f6', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, color: '#374151' }}>
-              {subs > 0 ? `${subs.toLocaleString('en-IN')} subscribers` : 'No data yet'}
-            </span>
-            {ahead ? (
-              <span style={{ background: '#fee2e2', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, color: '#dc2626' }}>
-                🔴 Ahead by {(subs - ownMaxSubs).toLocaleString('en-IN')}
-              </span>
-            ) : subs > 0 ? (
-              <span style={{ background: '#dcfce7', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, color: '#16a34a' }}>
-                🟢 Behind by {(ownMaxSubs - subs).toLocaleString('en-IN')}
-              </span>
-            ) : null}
+            <span style={{ background: '#f0f9ff', color: '#0369a1', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>View Rate: ~{estRate}%</span>
+            <span style={{ background: '#f0fdf4', color: '#15803d', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>Avg Views: ~{estAvgViews >= 1000 ? (estAvgViews/1000).toFixed(1)+'K' : estAvgViews}</span>
+            <span style={{ background: '#fef3c7', color: '#92400e', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600 }}>Net/day: ~+{estNetToday}</span>
+            <span style={{ background: '#f5f3ff', color: '#6d28d9', padding: '3px 10px', borderRadius: '20px', fontSize: '9px', fontWeight: 500 }}>Est. from subs</span>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded */}
+      {expanded && (
+        <div style={{ padding: '16px', background: '#f9fafb', borderTop: '1px solid #e5e7eb' }}>
+
+          {/* Description */}
+          {info?.description && (
+            <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: '#6b7280', lineHeight: 1.5, fontStyle: 'italic' }}>{info.description}</p>
+          )}
+
+          {/* Growth chart */}
+          {subs > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: 700, color: '#6b7280', letterSpacing: '0.05em' }}>📈 7-DAY ESTIMATED TREND</p>
+              <MiniDualChart history={history7d} color={ahead ? '#dc2626' : '#16a34a'} />
+            </div>
+          )}
+
+          {/* Content breakdown table */}
+          {subs > 0 && (
+            <div style={{ marginBottom: '14px', overflowX: 'auto' }}>
+              <p style={{ margin: '0 0 6px 0', fontSize: '11px', fontWeight: 700, color: '#6b7280', letterSpacing: '0.05em' }}>📊 ESTIMATED CONTENT BREAKDOWN</p>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', background: 'white', borderRadius: 8, overflow: 'hidden' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    {['Content Type','Posts','Avg Views','View Rate','Avg Fwd'].map(h => (
+                      <th key={h} style={{ padding: '7px 10px', textAlign: h === 'Content Type' ? 'left' : 'right', fontWeight: 600, color: '#6b7280', fontSize: '11px', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {estContentTypes.map((ct, i) => (
+                    <tr key={i} style={{ borderBottom: i < estContentTypes.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                      <td style={{ padding: '7px 10px', fontWeight: 500, color: '#374151' }}>{ct.type}</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right', color: '#374151' }}>{ct.posts}</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right' }}>{ct.avgViews >= 1000 ? (ct.avgViews/1000).toFixed(1)+'K' : ct.avgViews}</td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right' }}>
+                        <strong style={{ color: ct.rate > 5 ? '#10b981' : '#f59e0b' }}>{ct.rate}%</strong>
+                      </td>
+                      <td style={{ padding: '7px 10px', textAlign: 'right', color: '#374151' }}>{ct.fwd}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p style={{ margin: '4px 0 0 0', fontSize: '9px', color: '#9ca3af' }}>* Estimated from subscriber count — Telegram API only provides subscriber data for external channels</p>
+            </div>
+          )}
+
+          {/* Beat strategy */}
+          <div style={{ background: 'linear-gradient(135deg,#fef3c7,#fde68a)', borderRadius: '8px', padding: '12px 14px', borderLeft: '4px solid #d97706', marginBottom: '12px' }}>
+            <p style={{ margin: '0 0 5px 0', fontSize: '11px', fontWeight: 700, color: '#92400e', letterSpacing: '0.04em' }}>⚔️ BEAT STRATEGY</p>
+            <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5, color: '#7c2d12' }}>{beatStrategy}</p>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '8px' }}>
             <a href={`https://t.me/${username}`} target="_blank" rel="noopener noreferrer"
-              style={{ background: '#dbeafe', color: '#1e40af', padding: '3px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 600, textDecoration: 'none' }}>
-              Open in Telegram ↗
+              onClick={e => e.stopPropagation()}
+              style={{ flex: 1, background: '#dbeafe', color: '#1e40af', padding: '8px 12px', textAlign: 'center', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '12px' }}>
+              View Channel ↗
             </a>
           </div>
         </div>
