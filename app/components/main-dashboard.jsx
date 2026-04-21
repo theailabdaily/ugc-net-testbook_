@@ -31,27 +31,27 @@ const STATIC_CHANNELS = [
 ];
 
 const COMPETITOR_MAP = {
-  'Common':               ['Adda247ugcnet','ugcnetaspirants','ugcnetofficial','ntaugcnet2024'],
-  'Paper 1':              ['toshibashukla','ugcnetpaper1hub','knowledgebykhanna','paper1ugcnet'],
-  'Political Science':    ['thediscoverstudy','BYJUSExamPrepPoliticalscience','ugcnetpolsci'],
-  'History':              ['ugcnethistory','historybyneha','byjushistoryugc'],
-  'Public Administration':['ugcnetpubad','publiadminugcnet'],
-  'Sociology':            ['ugcnetsociology','sociologybymanoj'],
-  'Education':            ['ugcneteducation','educationugcnet'],
-  'Home Science':         ['homescienceugcnet'],
-  'Law':                  ['ugcnetlaw','lawbyadvocate'],
-  'English':              ['ugcnetenglish','englishbypriya'],
-  'Geography':            ['ugcnetgeography'],
-  'Economics':            ['ugcneteconomics','economicsbyshachi'],
-  'Management':           ['ugcnetmanagement','mbaugcnet'],
-  'Environmental Science':['ugcnetevs'],
-  'Library Science':      ['ugcnetlibrary'],
-  'Computer Science':     ['ugcnetcs','csugcnet'],
-  'Sanskrit':             ['ugcnetsanskrit'],
-  'Hindi':                ['ugcnethindi','hindibykeshari'],
-  'Commerce':             ['ugcnetcommerce'],
-  'Psychology':           ['ugcnetpsychology'],
-  'Physical Education':   ['ugcnetpe'],
+  'Common':               ['Adda247ugcnet','ntaugcnett','UtkarshUGCNET','apniuniversityofficial','pwugcnet','jrfaddaofficial'],
+  'Paper 1':              ['toshibashukla','GulshanPAPER1','DrLokeshBali','ugcnetpaper1bygauravsir','aditiNETJRF'],
+  'Political Science':    ['thediscoverstudy','BYJUSExamPrepPoliticalscience'],
+  'History':              ['historybysubhanginipriya','history','UgcNetHistoryOfficial'],
+  'Public Administration':['jrfaddapublicadmin'],
+  'Sociology':            ['ugcnetsociologybyjrfadda','antarachakk_9876'],
+  'Education':            ['education_by_drpriyanka'],
+  'Home Science':         ['nta_net_home_science','homescienceprerna'],
+  'Law':                  ['ugcnetlawaspirant','ugc_net_Law_Lecture','masterscave_law','ugcnetlawbydikshasingh'],
+  'English':              ['EnglishWithAKSRajveer','EnglishNETJRF','dana_multitasker','Literature2021','UGCNETEnglishByAyeshaMaam','ugcnetenglishbyaishwaryapuri','ugc_net_english'],
+  'Geography':            ['suraj_Sir_Geo','GEOGRAPHY_UGC_NET_PGT_SET_ADDA','ugc_net_jrf_geography','geography','GEOGRAPHY_UGC_NETJRF','Geographywankit','netxamgeo'],
+  'Economics':            ['ECONOMICSNTANET','ugcneteconomicsbyshivanisharma','ugcneteconomicsnotes','netecon22','UGCPAPER1economics','economics_ugc_net'],
+  'Management':           ['ugc_net_commerce_management','ugc_net_management_commerce','MANAGEMENT_NET_SET_ADDA','SeekStudySmartly3s','mgtbykanupriya','DeepeshManoraniSir_UgcNet'],
+  'Environmental Science':['ugc_Net_evs','ugcnetevsbyanshikapandey','evs_study','EVS_withAdda247'],
+  'Library Science':      ['UGCNETJRF2024JUNE','ugc_net_Library_Science','net_library_science','bsiacademy_lis','lisupdatesforall','UGCNETLibraryScience'],
+  'Computer Science':     ['puneet_computer_science_ugc_net','ugc_net_computerscience','ugcnetcse2023','Computer_science_net_notes'],
+  'Sanskrit':             ['Avdheshvidyalankarah','Sanskrit_By_Sachinsir'],
+  'Hindi':                ['UGC_NET_HINDI_CSIR_GRAMMAR_CUET','padhaaiwal'],
+  'Commerce':             ['commercenetachievers','NetJRFwithAIR1Yukti','ugc_net_commerce_management','ugcnetcommercebyadda247','UGC_NET_COMMERCE_CUET','JRF_NETCommerce','ugcnetbybushra'],
+  'Psychology':           ['netwithhafsa','ugcnetpsychologyforall','psychprep','psychohub12345'],
+  'Physical Education':   ['Physical_Education_Adda247','ugc_net_Phsyical_education','RWA_UGC_NET_PHYSICAL_EDUCATION'],
 };
 
 function getCompetitorKey(subject) { return subject; }
@@ -140,6 +140,9 @@ const NAV = [
   { id: 'competitive',  icon: '⚔️',  label: 'Competitive' },
   { id: 'insights',     icon: '💡', label: 'Growth Insights' },
   { id: 'calendar',     icon: '📅', label: 'Content Calendar' },
+  { id: 'youtube',      icon: '▶️',  label: 'YT Calendar' },
+  { id: 'masterclass',  icon: '🎓', label: 'Master Classes' },
+  { id: 'promotions',   icon: '📣', label: 'Promotions' },
   { id: 'automation',   icon: '🤖', label: 'Automation' },
   { id: 'integrations', icon: '🔗', label: 'Integrations' },
 ];
@@ -714,21 +717,35 @@ function CalendarSection({ channels }) {
     const post = plan.find(p => p.id === postId);
     if (!post || !ch) return;
     setPostingId(postId);
-    // Update status to posting
     setPlan(prev => prev.map(p => p.id === postId ? { ...p, status: 'posting' } : p));
     try {
+      const payload = {
+        action: 'post',
+        channelUsernames: [ch.username],
+        pin: post.pin,
+        type: post.type,
+      };
+      // MCQ uses poll data, others use text
+      if (post.type === 'MCQ') {
+        payload.question       = post.question;
+        payload.options        = post.options;
+        payload.correct_option_id = Number(post.correct_option_id);
+        payload.explanation    = post.explanation;
+      } else {
+        payload.text = post.text;
+      }
       const res = await fetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'post', channelUsername: ch.username, text: post.text, pin: post.pin }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (data.success) {
-        setPlan(prev => prev.map(p => p.id === postId ? { ...p, status: 'posted', messageId: data.messageId, pinned: data.pinned } : p));
-        // Remove from plan after 2s
+      const result = data.results?.[0];
+      if (result?.success) {
+        setPlan(prev => prev.map(p => p.id === postId ? { ...p, status: 'posted', messageId: result.messageId, pinned: result.pinned } : p));
         setTimeout(() => setPlan(prev => prev.filter(p => p.id !== postId)), 2000);
       } else {
-        setPlan(prev => prev.map(p => p.id === postId ? { ...p, status: 'failed', error: data.error } : p));
+        setPlan(prev => prev.map(p => p.id === postId ? { ...p, status: 'failed', error: result?.error || 'Failed' } : p));
       }
     } catch {
       setPlan(prev => prev.map(p => p.id === postId ? { ...p, status: 'failed', error: 'Network error' } : p));
@@ -846,11 +863,47 @@ function CalendarSection({ channels }) {
                     </div>
                   </div>
 
-                  {/* Post text - editable */}
+                  {/* Post content — MCQ shows poll fields, others show textarea */}
                   <div style={{ padding: '12px 16px' }}>
-                    <textarea value={post.text} onChange={e => updateText(post.id, e.target.value)}
-                      disabled={isPosted || isPosting}
-                      style={{ width: '100%', minHeight: 90, padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.6, resize: 'vertical', outline: 'none', color: '#374151', background: isPosted ? '#f8fafc' : 'white', boxSizing: 'border-box' }} />
+                    {post.type === 'MCQ' ? (
+                      <div>
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>QUESTION</div>
+                          <textarea value={post.question || ''} onChange={e => setPlan(prev => prev.map(p => p.id === post.id ? { ...p, question: e.target.value } : p))}
+                            disabled={isPosted || isPosting}
+                            style={{ width: '100%', padding: '7px 9px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, resize: 'vertical', outline: 'none', minHeight: 50, boxSizing: 'border-box' }} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+                          {(post.options || ['','','','']).map((opt, oi) => (
+                            <div key={oi}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', marginBottom: 2 }}>
+                                {['A','B','C','D'][oi]} {Number(post.correct_option_id) === oi && <span style={{ color: '#10b981' }}>✓ CORRECT</span>}
+                              </div>
+                              <input value={opt} onChange={e => { const opts = [...(post.options||['','','',''])]; opts[oi] = e.target.value; setPlan(prev => prev.map(p => p.id === post.id ? { ...p, options: opts } : p)); }}
+                                disabled={isPosted || isPosting}
+                                style={{ width: '100%', padding: '5px 8px', border: `1px solid ${Number(post.correct_option_id) === oi ? '#10b981' : '#e2e8f0'}`, borderRadius: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>CORRECT ANSWER:</div>
+                          <select value={post.correct_option_id || 0} onChange={e => setPlan(prev => prev.map(p => p.id === post.id ? { ...p, correct_option_id: Number(e.target.value) } : p))}
+                            style={{ padding: '3px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, outline: 'none' }}>
+                            {['A (0)','B (1)','C (2)','D (3)'].map((l, i) => <option key={i} value={i}>{l}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', marginBottom: 2 }}>EXPLANATION (shown after answering)</div>
+                          <input value={post.explanation || ''} onChange={e => setPlan(prev => prev.map(p => p.id === post.id ? { ...p, explanation: e.target.value } : p))}
+                            disabled={isPosted || isPosting} placeholder="Brief explanation of the correct answer..."
+                            style={{ width: '100%', padding: '5px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <textarea value={post.text || ''} onChange={e => setPlan(prev => prev.map(p => p.id === post.id ? { ...p, text: e.target.value } : p))}
+                        disabled={isPosted || isPosting}
+                        style={{ width: '100%', minHeight: 90, padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.6, resize: 'vertical', outline: 'none', color: '#374151', background: isPosted ? '#f8fafc' : 'white', boxSizing: 'border-box' }} />
+                    )}
                     {post.rationale && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>💡 {post.rationale}</div>}
                     {isFailed && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 6, background: '#fee2e2', padding: '5px 10px', borderRadius: 6 }}>⚠️ {post.error}</div>}
                   </div>
@@ -906,7 +959,659 @@ function CalendarSection({ channels }) {
 }
 
 // ─── AUTOMATION SECTION ───────────────────────────────────────────────────────
-function AutomationSection() {
+// ─── Shared multi-channel selector ───────────────────────────────────────────
+function ChannelMultiSelect({ channels, selected, onChange }) {
+  const allSelected = selected.length === channels.length;
+  return (
+    <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 12px', maxHeight: 180, overflowY: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b' }}>SELECT CHANNELS</span>
+        <button onClick={() => onChange(allSelected ? [] : channels.map(c => c.username))}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: '#3b82f6' }}>
+          {allSelected ? 'Deselect All' : 'Select All'}
+        </button>
+      </div>
+      {channels.map(ch => (
+        <label key={ch.username} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5, cursor: 'pointer' }}>
+          <input type="checkbox" checked={selected.includes(ch.username)} onChange={e => {
+            if (e.target.checked) onChange([...selected, ch.username]);
+            else onChange(selected.filter(u => u !== ch.username));
+          }} />
+          <span style={{ fontSize: 12, color: '#374151' }}>{ch.title || ch.subject}{ch.teacher ? ` — ${ch.teacher}` : ''}</span>
+          <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 'auto' }}>{(ch.subs||0).toLocaleString('en-IN')}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// ─── PostHistory — track sent messages with delete ────────────────────────────
+function PostHistoryItem({ item, onDelete }) {
+  const [deleting, setDeleting] = useState(false);
+  const [deleted,  setDeleted]  = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', channelUsername: item.channel, messageId: item.messageId }),
+      });
+      const data = await res.json();
+      if (data.success) { setDeleted(true); setTimeout(() => onDelete(item.id), 1000); }
+      else alert('Delete failed: ' + data.error);
+    } catch { alert('Network error'); }
+    setDeleting(false);
+  }
+
+  if (deleted) return <div style={{ padding: '8px 12px', fontSize: 12, color: '#10b981', background: '#f0fdf4', borderRadius: 8 }}>✅ Deleted from Telegram</div>;
+  return (
+    <div style={{ background: '#f8fafc', borderRadius: 8, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>@{item.channel} {item.pinned && '📌'}</div>
+        <div style={{ fontSize: 10, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.preview}</div>
+      </div>
+      <button onClick={handleDelete} disabled={deleting}
+        style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: deleting ? 'not-allowed' : 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+        {deleting ? '...' : '🗑️ Delete'}
+      </button>
+    </div>
+  );
+}
+
+// ─── YOUTUBE CALENDAR SECTION ─────────────────────────────────────────────────
+function YTCalendarSection({ channels }) {
+  const [classes, setClasses]           = useState([]);
+  const [xlsxLoaded, setXlsxLoaded]     = useState(false);
+  const [view, setView]                 = useState('calendar'); // 'calendar' | 'list'
+  const [selDate, setSelDate]           = useState(new Date().toISOString().slice(0,10));
+  const [modal, setModal]               = useState(null); // class item for compose
+  const [selChannels, setSelChannels]   = useState([]);
+  const [postMsg, setPostMsg]           = useState('');
+  const [posting, setPosting]           = useState(false);
+  const [postedItems, setPostedItems]   = useState([]);
+  const [imageUrl, setImageUrl]         = useState('');
+
+  // Load SheetJS from CDN
+  useEffect(() => {
+    if (window.XLSX) { setXlsxLoaded(true); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => setXlsxLoaded(true);
+    document.head.appendChild(s);
+  }, []);
+
+  function parseExcel(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = window.XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const parsed = rows.filter(r => r['YT Topics'] || r['YT Time']).map((r, i) => ({
+          id: `yt_${i}`,
+          date: r['Date'] ? new Date(r['Date']).toISOString().slice(0,10) : '',
+          subject: r['Subject'] || '',
+          faculty: r['Faculty'] || '',
+          category: r['Category'] || '',
+          ytTime: r['YT Time'] || '',
+          ytTopics: r['YT Topics'] || '',
+          classStatus: r['Class Status'] || '',
+          thumbnailStatus: r['Thumbnail Status'] || '',
+          remarks: r['Remarks'] || '',
+        }));
+        setClasses(parsed);
+      } catch { alert('Could not parse Excel. Ensure columns match the expected format.'); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // Classes for selected date
+  const dayClasses = classes.filter(c => c.date === selDate);
+  // Group by date for calendar dots
+  const classByDate = {};
+  classes.forEach(c => { if (c.date) classByDate[c.date] = (classByDate[c.date] || 0) + 1; });
+
+  // Get thumbnail from YouTube URL in topic
+  function extractYtId(text) {
+    const m = text.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+
+  function openCompose(cls) {
+    const thumb = extractYtId(cls.ytTopics);
+    setImageUrl(thumb ? `https://img.youtube.com/vi/${thumb}/maxresdefault.jpg` : '');
+    setPostMsg(`🎓 <b>${cls.subject} — YouTube Class</b>\n\n📌 <b>Topic:</b> ${cls.ytTopics}\n👨‍🏫 <b>Faculty:</b> ${cls.faculty}\n⏰ <b>Time:</b> ${cls.ytTime}\n\n✅ Join now and ace your UGC NET!\n📲 testbook.com/ugc-net-coaching`);
+    setSelChannels([]);
+    setModal(cls);
+  }
+
+  async function postClass() {
+    if (!selChannels.length) { alert('Select at least one channel'); return; }
+    if (!postMsg.trim()) { alert('Write a message first'); return; }
+    setPosting(true);
+    try {
+      const res = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'post', channelUsernames: selChannels, text: postMsg, imageUrl: imageUrl || undefined, pin: false }),
+      });
+      const data = await res.json();
+      if (data.results) {
+        data.results.forEach(r => {
+          if (r.success) setPostedItems(prev => [...prev, { id: `ph_${Date.now()}_${r.channel}`, channel: r.channel, messageId: r.messageId, pinned: r.pinned, preview: postMsg.replace(/<[^>]+>/g,'').slice(0,60) }]);
+        });
+        setModal(null);
+      }
+    } catch { alert('Network error'); }
+    setPosting(false);
+  }
+
+  // Calendar grid
+  const today = new Date();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const monthName = new Date(calYear, calMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+  return (
+    <div>
+      <SectionHeader icon="▶️" title="YouTube Class Calendar" subtitle="Upload your YT schedule sheet · view in calendar · post to channels" />
+
+      {/* Upload */}
+      <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Upload Schedule Excel</div>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Columns needed: Date, Subject, Faculty, Category, YT Time, YT Topics, Class Status, Thumbnail Status, Remarks</div>
+          <input type="file" accept=".xlsx,.xls,.csv" disabled={!xlsxLoaded} onChange={e => e.target.files[0] && parseExcel(e.target.files[0])}
+            style={{ fontSize: 12, cursor: xlsxLoaded ? 'pointer' : 'not-allowed' }} />
+          {!xlsxLoaded && <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 8 }}>Loading Excel parser...</span>}
+        </div>
+        {classes.length > 0 && (
+          <div style={{ display: 'flex', gap: 16, marginLeft: 'auto' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>{classes.length}</div>
+              <div style={{ fontSize: 10, color: '#94a3b8' }}>Classes loaded</div>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {['calendar','list'].map(v => <button key={v} onClick={() => setView(v)} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: view === v ? '#3b82f6' : '#f1f5f9', color: view === v ? 'white' : '#374151' }}>{v === 'calendar' ? '📅 Calendar' : '📋 List'}</button>)}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {classes.length === 0 && (
+        <div style={{ background: 'white', borderRadius: 12, padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>▶️</div>
+          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, marginBottom: 6 }}>No classes loaded yet</div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Upload your YouTube class schedule Excel above to see them in calendar view.</div>
+        </div>
+      )}
+
+      {classes.length > 0 && view === 'calendar' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+          <div style={{ background: 'white', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y-1); } else setCalMonth(m => m-1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>←</button>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{monthName}</span>
+              <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y+1); } else setCalMonth(m => m+1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>→</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 4 }}>
+              {['S','M','T','W','T','F','S'].map((d,i) => <div key={i} style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textAlign: 'center' }}>{d}</div>)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+              {Array.from({ length: firstDay }).map((_,i) => <div key={`e${i}`} />)}
+              {Array.from({ length: daysInMonth }, (_,i) => i+1).map(day => {
+                const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const cnt = classByDate[key] || 0;
+                const isSel = key === selDate;
+                const isToday = key === today.toISOString().slice(0,10);
+                return (
+                  <div key={day} onClick={() => setSelDate(key)} style={{ minHeight: 44, background: isSel ? '#dc2626' : cnt > 0 ? '#fff7f7' : '#fafafa', borderRadius: 6, padding: '3px 4px', cursor: 'pointer', border: isToday ? '1px solid #fca5a5' : '1px solid transparent' }}>
+                    <div style={{ fontSize: 10, fontWeight: isSel ? 700 : 400, color: isSel ? 'white' : '#374151', textAlign: 'center' }}>{day}</div>
+                    {cnt > 0 && <div style={{ fontSize: 9, color: isSel ? 'rgba(255,255,255,0.9)' : '#dc2626', fontWeight: 700, textAlign: 'center' }}>{cnt} class{cnt > 1 ? 'es' : ''}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 12 }}>
+              {new Date(selDate + 'T12:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} — {dayClasses.length} class{dayClasses.length !== 1 ? 'es' : ''}
+            </div>
+            {dayClasses.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 12 }}>No classes scheduled for this date.</div> : dayClasses.map(cls => {
+              const ytId = extractYtId(cls.ytTopics);
+              return (
+                <div key={cls.id} style={{ background: 'white', borderRadius: 10, padding: '12px 14px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: '4px solid #dc2626' }}>
+                  {ytId && <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="thumbnail" style={{ width: '100%', borderRadius: 6, marginBottom: 8, display: 'block' }} onError={e => e.target.style.display='none'} />}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{cls.subject}</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>👨‍🏫 {cls.faculty} · ⏰ {cls.ytTime}</div>
+                  <div style={{ fontSize: 11, color: '#374151', marginBottom: 8, lineHeight: 1.5 }}>📌 {cls.ytTopics}</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span style={{ background: cls.classStatus === 'Done' ? '#dcfce7' : '#fef3c7', color: cls.classStatus === 'Done' ? '#15803d' : '#92400e', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 12 }}>{cls.classStatus || 'Pending'}</span>
+                    <button onClick={() => openCompose(cls)} style={{ marginLeft: 'auto', background: '#dc2626', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>📤 Post</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {classes.length > 0 && view === 'list' && (
+        <div style={{ background: 'white', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead><tr style={{ background: '#f1f5f9' }}>
+              {['Date','Subject','Faculty','YT Time','Topics','Status',''].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#64748b', fontSize: 11, borderBottom: '1px solid #e2e8f0' }}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {classes.map(cls => (
+                <tr key={cls.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '8px 12px', color: '#374151' }}>{cls.date}</td>
+                  <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>{cls.subject}</td>
+                  <td style={{ padding: '8px 12px', color: '#374151' }}>{cls.faculty}</td>
+                  <td style={{ padding: '8px 12px', color: '#374151' }}>{cls.ytTime}</td>
+                  <td style={{ padding: '8px 12px', color: '#374151', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cls.ytTopics}</td>
+                  <td style={{ padding: '8px 12px' }}><span style={{ background: cls.classStatus === 'Done' ? '#dcfce7' : '#fef3c7', color: cls.classStatus === 'Done' ? '#15803d' : '#92400e', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 12 }}>{cls.classStatus || 'Pending'}</span></td>
+                  <td style={{ padding: '8px 12px' }}><button onClick={() => openCompose(cls)} style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Post</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Post history */}
+      {postedItems.length > 0 && (
+        <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>📬 Posted Messages ({postedItems.length})</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {postedItems.map(item => <PostHistoryItem key={item.id} item={item} onDelete={id => setPostedItems(prev => prev.filter(p => p.id !== id))} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Compose modal */}
+      {modal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setModal(null)}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 24, width: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', marginBottom: 16 }}>📤 Post YouTube Class</div>
+            {imageUrl && <img src={imageUrl} alt="thumb" style={{ width: '100%', borderRadius: 8, marginBottom: 12 }} onError={e => e.target.style.display='none'} />}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>IMAGE URL (optional — YouTube thumbnail auto-filled)</div>
+              <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg"
+                style={{ width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>MESSAGE</div>
+              <textarea value={postMsg} onChange={e => setPostMsg(e.target.value)} rows={6}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.5, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <ChannelMultiSelect channels={channels} selected={selChannels} onChange={setSelChannels} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={postClass} disabled={posting || !selChannels.length}
+                style={{ flex: 1, background: posting ? '#94a3b8' : '#dc2626', color: 'white', border: 'none', borderRadius: 8, padding: '10px', cursor: posting ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 13 }}>
+                {posting ? 'Posting...' : `📤 Post to ${selChannels.length} channel${selChannels.length !== 1 ? 's' : ''}`}
+              </button>
+              <button onClick={() => setModal(null)} style={{ flex: 0.5, background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, padding: '10px', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── MASTER CLASS CALENDAR SECTION ───────────────────────────────────────────
+function MasterClassSection({ channels }) {
+  const [classes, setClasses]           = useState([]);
+  const [xlsxLoaded, setXlsxLoaded]     = useState(false);
+  const [modal, setModal]               = useState(null);
+  const [selChannels, setSelChannels]   = useState([]);
+  const [postMsg, setPostMsg]           = useState('');
+  const [posting, setPosting]           = useState(false);
+  const [postedItems, setPostedItems]   = useState([]);
+  const [selDate, setSelDate]           = useState(new Date().toISOString().slice(0,10));
+
+  useEffect(() => {
+    if (window.XLSX) { setXlsxLoaded(true); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => setXlsxLoaded(true);
+    document.head.appendChild(s);
+  }, []);
+
+  function parseExcel(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = window.XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const parsed = rows.filter(r => r['Master Class Time'] || r['MC SERIES NAME']).map((r, i) => ({
+          id: `mc_${i}`,
+          date: r['Date'] ? new Date(r['Date']).toISOString().slice(0,10) : '',
+          subject: r['Subject'] || '',
+          faculty: r['Faculty'] || '',
+          mcCategory: r['MC Category'] || '',
+          mcTime: r['Master Class Time'] || '',
+          seriesName: r['MC SERIES NAME'] || '',
+          topic: r['Master Class Topic (To be filled by Faculty)'] || r['Master Class Topic'] || '',
+          classStatus: r['Class Status'] || '',
+          remarks: r['Remarks'] || '',
+        }));
+        setClasses(parsed);
+      } catch { alert('Could not parse Excel. Check the column names.'); }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function openCompose(cls) {
+    setPostMsg(`🎓 <b>${cls.subject} — Master Class</b>\n\n📚 <b>Series:</b> ${cls.seriesName}\n📌 <b>Topic:</b> ${cls.topic}\n👨‍🏫 <b>Faculty:</b> ${cls.faculty}\n⏰ <b>Time:</b> ${cls.mcTime}\n\n🔥 Don't miss this class! Join now.\n📲 testbook.com/ugc-net-coaching`);
+    setSelChannels([]);
+    setModal(cls);
+  }
+
+  async function postClass() {
+    if (!selChannels.length) { alert('Select at least one channel'); return; }
+    if (!postMsg.trim()) { alert('Write a message first'); return; }
+    setPosting(true);
+    try {
+      const res = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'post', channelUsernames: selChannels, text: postMsg, pin: false }),
+      });
+      const data = await res.json();
+      if (data.results) {
+        data.results.forEach(r => {
+          if (r.success) setPostedItems(prev => [...prev, { id: `ph_${Date.now()}_${r.channel}`, channel: r.channel, messageId: r.messageId, pinned: r.pinned, preview: postMsg.replace(/<[^>]+>/g,'').slice(0,60) }]);
+        });
+        setModal(null);
+      }
+    } catch { alert('Network error'); }
+    setPosting(false);
+  }
+
+  const classByDate = {};
+  classes.forEach(c => { if (c.date) classByDate[c.date] = (classByDate[c.date] || 0) + 1; });
+  const dayClasses = classes.filter(c => c.date === selDate);
+  const today = new Date();
+  const [calYear, setCalYear] = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+
+  return (
+    <div>
+      <SectionHeader icon="🎓" title="Master Class Calendar" subtitle="Upload your MC schedule · view in calendar · post announcements" />
+
+      <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 20 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Upload Master Class Schedule</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Columns: Date, Subject, Faculty, MC Category, Master Class Time, MC SERIES NAME, Master Class Topic, Class Status, Remarks</div>
+        <input type="file" accept=".xlsx,.xls,.csv" disabled={!xlsxLoaded} onChange={e => e.target.files[0] && parseExcel(e.target.files[0])} style={{ fontSize: 12 }} />
+        {classes.length > 0 && <span style={{ marginLeft: 12, fontSize: 12, color: '#10b981', fontWeight: 700 }}>✅ {classes.length} master classes loaded</span>}
+      </div>
+
+      {classes.length === 0 ? (
+        <div style={{ background: 'white', borderRadius: 12, padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>🎓</div>
+          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>No master classes loaded</div>
+          <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>Upload your master class schedule Excel to get started.</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+          <div style={{ background: 'white', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y=>y-1); } else setCalMonth(m=>m-1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>←</button>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{new Date(calYear, calMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</span>
+              <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y=>y+1); } else setCalMonth(m=>m+1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>→</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 4 }}>
+              {['S','M','T','W','T','F','S'].map((d,i) => <div key={i} style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textAlign: 'center' }}>{d}</div>)}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
+              {Array.from({ length: firstDay }).map((_,i) => <div key={`e${i}`} />)}
+              {Array.from({ length: daysInMonth },(_,i)=>i+1).map(day => {
+                const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const cnt = classByDate[key] || 0;
+                const isSel = key === selDate;
+                return (
+                  <div key={day} onClick={() => setSelDate(key)} style={{ minHeight: 44, background: isSel ? '#8b5cf6' : cnt > 0 ? '#f5f3ff' : '#fafafa', borderRadius: 6, padding: '3px 4px', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 10, fontWeight: isSel ? 700 : 400, color: isSel ? 'white' : '#374151', textAlign: 'center' }}>{day}</div>
+                    {cnt > 0 && <div style={{ fontSize: 9, color: isSel ? 'rgba(255,255,255,0.9)' : '#8b5cf6', fontWeight: 700, textAlign: 'center' }}>{cnt}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 12 }}>
+              {new Date(selDate+'T12:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})} — {dayClasses.length} class{dayClasses.length!==1?'es':''}
+            </div>
+            {dayClasses.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 12 }}>No master classes on this date.</div> : dayClasses.map(cls => (
+              <div key={cls.id} style={{ background: 'white', borderRadius: 10, padding: '12px 14px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: '4px solid #8b5cf6' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{cls.seriesName || cls.subject}</div>
+                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>👨‍🏫 {cls.faculty} · ⏰ {cls.mcTime}</div>
+                <div style={{ fontSize: 11, color: '#374151', marginBottom: 8, lineHeight: 1.5 }}>📌 {cls.topic || '(topic TBD)'}</div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span style={{ background: '#f5f3ff', color: '#6d28d9', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 12 }}>{cls.mcCategory}</span>
+                  <button onClick={() => openCompose(cls)} style={{ marginLeft: 'auto', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>📤 Post</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {postedItems.length > 0 && (
+        <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>📬 Posted Messages</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {postedItems.map(item => <PostHistoryItem key={item.id} item={item} onDelete={id => setPostedItems(prev => prev.filter(p => p.id !== id))} />)}
+          </div>
+        </div>
+      )}
+
+      {modal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setModal(null)}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 24, width: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', marginBottom: 16 }}>📤 Post Master Class</div>
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>MESSAGE</div>
+              <textarea value={postMsg} onChange={e => setPostMsg(e.target.value)} rows={7}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.5, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <ChannelMultiSelect channels={channels} selected={selChannels} onChange={setSelChannels} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={postClass} disabled={posting || !selChannels.length}
+                style={{ flex: 1, background: posting ? '#94a3b8' : '#8b5cf6', color: 'white', border: 'none', borderRadius: 8, padding: '10px', cursor: posting ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 13 }}>
+                {posting ? 'Posting...' : `📤 Post to ${selChannels.length} channel${selChannels.length !== 1 ? 's' : ''}`}
+              </button>
+              <button onClick={() => setModal(null)} style={{ flex: 0.5, background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, padding: '10px', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PROMOTIONS SECTION ───────────────────────────────────────────────────────
+function PromotionsSection({ channels }) {
+  const [imageUrl,     setImageUrl]     = useState('');
+  const [copy,         setCopy]         = useState('');
+  const [link,         setLink]         = useState('');
+  const [selChannels,  setSelChannels]  = useState([]);
+  const [times,        setTimes]        = useState(['']);
+  const [pin,          setPin]          = useState(false);
+  const [posting,      setPosting]      = useState(false);
+  const [postedItems,  setPostedItems]  = useState([]);
+  const [results,      setResults]      = useState([]);
+
+  function addTime()    { if (times.length < 3) setTimes([...times, '']); }
+  function removeTime(i){ setTimes(times.filter((_,idx) => idx !== i)); }
+  function setTime(i,v) { const t=[...times]; t[i]=v; setTimes(t); }
+
+  const fullMessage = [copy, link].filter(Boolean).join('\n\n');
+
+  async function postNow() {
+    if (!selChannels.length) { alert('Select at least one channel'); return; }
+    if (!fullMessage.trim()) { alert('Write your promotional copy first'); return; }
+    setPosting(true); setResults([]);
+    try {
+      const res = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'post',
+          channelUsernames: selChannels,
+          text: fullMessage,
+          imageUrl: imageUrl || undefined,
+          pin,
+        }),
+      });
+      const data = await res.json();
+      if (data.results) {
+        setResults(data.results);
+        data.results.filter(r => r.success).forEach(r => {
+          setPostedItems(prev => [...prev, {
+            id: `promo_${Date.now()}_${r.channel}`,
+            channel: r.channel,
+            messageId: r.messageId,
+            pinned: r.pinned,
+            preview: fullMessage.replace(/<[^>]+>/g,'').slice(0,60),
+          }]);
+        });
+      }
+    } catch { alert('Network error'); }
+    setPosting(false);
+  }
+
+  async function schedulePost(time) {
+    const [h, m] = time.split(':').map(Number);
+    const now = new Date();
+    const scheduled = new Date();
+    scheduled.setHours(h, m, 0, 0);
+    if (scheduled < now) scheduled.setDate(scheduled.getDate() + 1);
+    const msUntil = scheduled - now;
+    alert(`Scheduled for ${scheduled.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} (in ${Math.round(msUntil/60000)} minutes). Keep this tab open.`);
+    setTimeout(() => postNow(), msUntil);
+  }
+
+  return (
+    <div>
+      <SectionHeader icon="📣" title="Promotions" subtitle="Post promotional content to any channels · schedule up to 3 times · delete anytime" />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+
+        {/* Left: Compose */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Image */}
+          <div style={{ background: 'white', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>IMAGE URL (optional)</div>
+            <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://example.com/promo-banner.jpg"
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+            {imageUrl && <img src={imageUrl} alt="preview" style={{ marginTop: 8, width: '100%', borderRadius: 8, maxHeight: 180, objectFit: 'cover' }} onError={e => e.target.style.display='none'} />}
+          </div>
+
+          {/* Copy */}
+          <div style={{ background: 'white', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>PROMOTIONAL COPY</div>
+            <textarea value={copy} onChange={e => setCopy(e.target.value)} rows={6} placeholder={`🔥 <b>Big Sale Alert!</b>\n\nJoin UGC NET SuperCoaching at the best price ever.\n✅ All subjects covered\n✅ Live + recorded sessions\n✅ 24/7 doubt support`}
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.5, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
+            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>Use HTML: &lt;b&gt;bold&lt;/b&gt; · Emojis supported</div>
+          </div>
+
+          {/* Link */}
+          <div style={{ background: 'white', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 6 }}>LINK (optional)</div>
+            <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://testbook.com/ugc-net-coaching"
+              style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+          </div>
+
+          {/* Pin */}
+          <div style={{ background: 'white', borderRadius: 12, padding: '14px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div onClick={() => setPin(p => !p)} style={{ width: 44, height: 24, borderRadius: 12, background: pin ? '#f59e0b' : '#e2e8f0', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
+              <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'white', position: 'absolute', top: 3, left: pin ? 23 : 3, transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>📌 Pin this message</div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>{pin ? 'Will be pinned to top of channel' : 'Will not be pinned'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Channels + Schedule + Post */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Channel selector */}
+          <div style={{ background: 'white', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <ChannelMultiSelect channels={channels} selected={selChannels} onChange={setSelChannels} />
+          </div>
+
+          {/* Schedule times */}
+          <div style={{ background: 'white', borderRadius: 12, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 10 }}>SCHEDULE TIMES (up to 3 per day)</div>
+            {times.map((t, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+                <input type="time" value={t} onChange={e => setTime(i, e.target.value)}
+                  style={{ flex: 1, padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none' }} />
+                <button onClick={() => t && schedulePost(t)} disabled={!t || !selChannels.length || !fullMessage.trim()}
+                  style={{ background: '#f59e0b', color: 'white', border: 'none', borderRadius: 6, padding: '7px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                  ⏰ Schedule
+                </button>
+                {times.length > 1 && <button onClick={() => removeTime(i)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, padding: '7px 10px', cursor: 'pointer', fontSize: 12 }}>✕</button>}
+              </div>
+            ))}
+            {times.length < 3 && (
+              <button onClick={addTime} style={{ background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>+ Add Time Slot</button>
+            )}
+          </div>
+
+          {/* Post Now */}
+          <button onClick={postNow} disabled={posting || !selChannels.length || !fullMessage.trim()}
+            style={{ padding: '12px 24px', background: posting ? '#94a3b8' : '#e11d48', color: 'white', border: 'none', borderRadius: 12, cursor: posting ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 800, boxShadow: '0 2px 8px rgba(225,29,72,0.3)' }}>
+            {posting ? '⏳ Posting...' : `📤 Post Now to ${selChannels.length} channel${selChannels.length !== 1 ? 's' : ''}`}
+          </button>
+
+          {/* Results */}
+          {results.length > 0 && (
+            <div style={{ background: 'white', borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>Post Results</div>
+              {results.map((r, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                  <span style={{ fontSize: 13 }}>{r.success ? '✅' : '❌'}</span>
+                  <span style={{ fontSize: 12, color: '#374151' }}>@{r.channel}</span>
+                  {!r.success && <span style={{ fontSize: 11, color: '#dc2626' }}>{r.error}</span>}
+                  {r.pinned && <span style={{ fontSize: 10, color: '#f59e0b', fontWeight: 700 }}>📌 pinned</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Post history with delete */}
+      {postedItems.length > 0 && (
+        <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>📬 Posted Messages — click 🗑️ Delete to remove from Telegram</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {postedItems.map(item => <PostHistoryItem key={item.id} item={item} onDelete={id => setPostedItems(prev => prev.filter(p => p.id !== id))} />)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
   const [bots, setBots] = useState({
     welcome:   { on: true,  name: 'Welcome Bot',       desc: 'Auto-greets new members with intro message + study resources link.', icon: '👋' },
     quiz:      { on: false, name: 'Daily Quiz Bot',    desc: 'Posts 1 auto-quiz at 8PM IST every day, generated from PYQ bank.',   icon: '🧪' },
@@ -1046,6 +1751,9 @@ export default function MainDashboard() {
         {activeSection === 'competitive'  && <CompetitiveSection   channels={channels} competitorData={competitorData} competitorLoading={compLoading} />}
         {activeSection === 'insights'     && <InsightsSection      channels={channels} competitorData={competitorData} selectedDate={selectedDate} />}
         {activeSection === 'calendar'     && <CalendarSection      channels={channels} />}
+        {activeSection === 'youtube'      && <YTCalendarSection    channels={channels} />}
+        {activeSection === 'masterclass'  && <MasterClassSection   channels={channels} />}
+        {activeSection === 'promotions'   && <PromotionsSection    channels={channels} />}
         {activeSection === 'automation'   && <AutomationSection />}
         {activeSection === 'integrations' && <IntegrationsSection />}
       </main>
