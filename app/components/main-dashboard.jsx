@@ -95,6 +95,15 @@ function allSnapshotDates() {
   catch { return []; }
 }
 
+// ── Calendar post cache (survives section switches + page reloads) ─────────
+const calCacheKey = (ch, dt) => `cal_posts_v1_${ch}_${dt}`;
+function saveCalCache(ch, dt, posts) {
+  try { localStorage.setItem(calCacheKey(ch, dt), JSON.stringify(posts)); } catch {}
+}
+function loadCalCache(ch, dt) {
+  try { return JSON.parse(localStorage.getItem(calCacheKey(ch, dt)) || 'null'); } catch { return null; }
+}
+
 // ── Sparkline ───────────────────────────────────────────────────────────────
 function Sparkline({ data, color = '#3b82f6', h = 32 }) {
   if (!data || data.length < 2) return null;
@@ -642,7 +651,7 @@ function ContentCalendarSection({ channels }) {
   const today = new Date().toISOString().slice(0,10);
   const [selChannel, setSelChannel] = useState(channels[0]?.username||'');
   const [selDate,    setSelDate]    = useState(today);
-  const [posts,      setPosts]      = useState([]);
+  const [posts,      setPosts]      = useState(()=>loadCalCache(channels[0]?.username||'', today)||[]);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState(null);
   const [posting,    setPosting]    = useState(null);
@@ -651,6 +660,13 @@ function ContentCalendarSection({ channels }) {
   // scheduled[date] = [{type,note,id}]  — for the mini calendar dots
   const [scheduled,  setScheduled]  = useState({});
 
+  // Restore from cache when channel or date changes — never wipe cached content
+  useEffect(() => {
+    const cached = loadCalCache(selChannel, selDate);
+    setPosts(cached || []);
+    setError(null);
+  }, [selChannel, selDate]);
+
   const channel = channels.find(c=>c.username===selChannel)||channels[0];
   const monthLabel = new Date(calYear,calMonth).toLocaleDateString('en-IN',{month:'long',year:'numeric'});
   const firstDay   = new Date(calYear,calMonth,1).getDay();
@@ -658,16 +674,21 @@ function ContentCalendarSection({ channels }) {
 
   async function generate() {
     if (!channel) return;
-    setLoading(true); setError(null); setPosts([]);
+    // Snapshot the channel+date at call time so cache saves correctly even if user switches
+    const genChannel = channel.username;
+    const genDate = selDate;
+    setLoading(true); setError(null);
     try {
-      const res  = await fetch('/api/calendar',{ method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ action:'generate', channelUsername:channel.username, channelTitle:channel.title||channel.subject, subject:channel.subject, contentTypes:channel.contentTypes||[], subscribers:channel.subs, bestHours:channel.bestHours||[], date:selDate }) });
+      const res  = await fetch('/api/calendar',{ method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ action:'generate', channelUsername:channel.username, channelTitle:channel.title||channel.subject, subject:channel.subject, contentTypes:channel.contentTypes||[], subscribers:channel.subs, bestHours:channel.bestHours||[], date:genDate }) });
       const data = await res.json();
       if (data.success) {
+        // Save to localStorage immediately — survives section switches
+        saveCalCache(genChannel, genDate, data.posts);
+        // Only update UI state if still on same channel+date
         setPosts(data.posts);
-        // ── FIX: safe .slice — works for both text posts AND MCQ posts ──
         setScheduled(prev => ({
           ...prev,
-          [selDate]: data.posts.map(p => ({ type:p.type, note:(p.text||p.question||'').slice(0,40), id:p.id }))
+          [genDate]: data.posts.map(p => ({ type:p.type, note:(p.text||p.question||'').slice(0,40), id:p.id }))
         }));
       } else {
         setError(data.error||'Failed to generate plan');
@@ -714,13 +735,13 @@ function ContentCalendarSection({ channels }) {
             <div style={{ display:'flex',gap:12,flexWrap:'wrap',alignItems:'flex-end' }}>
               <div style={{ flex:1,minWidth:180 }}>
                 <label style={{ display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5 }}>CHANNEL</label>
-                <select value={selChannel} onChange={e=>{setSelChannel(e.target.value);setPosts([]);}} style={{ width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13,outline:'none',cursor:'pointer' }}>
+                <select value={selChannel} onChange={e=>{setSelChannel(e.target.value);}} style={{ width:'100%',padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13,outline:'none',cursor:'pointer' }}>
                   {channels.map(c=><option key={c.username} value={c.username}>{c.title||c.subject}{c.teacher?` — ${c.teacher}`:''} ({(c.subs||0).toLocaleString('en-IN')} subs)</option>)}
                 </select>
               </div>
               <div>
                 <label style={{ display:'block',fontSize:11,fontWeight:700,color:'#64748b',marginBottom:5 }}>DATE</label>
-                <input type="date" value={selDate} onChange={e=>{setSelDate(e.target.value);setPosts([]);}} style={{ padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13,outline:'none',cursor:'pointer' }} />
+                <input type="date" value={selDate} onChange={e=>{setSelDate(e.target.value);}} style={{ padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13,outline:'none',cursor:'pointer' }} />
               </div>
               <button onClick={generate} disabled={loading} style={{ padding:'9px 20px',background:loading?'#94a3b8':'#3b82f6',color:'white',border:'none',borderRadius:8,cursor:loading?'not-allowed':'pointer',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',gap:6,flexShrink:0 }}>
                 {loading?<><span style={{ width:14,height:14,border:'2px solid rgba(255,255,255,0.4)',borderTop:'2px solid white',borderRadius:'50%',animation:'spin 0.8s linear infinite',display:'inline-block' }} /> Generating…</>:'✨ Generate Day Plan'}
@@ -738,10 +759,13 @@ function ContentCalendarSection({ channels }) {
             </div>
           )}
           {posts.length===0&&!loading&&(
-            <div style={{ background:'white',borderRadius:12,padding:'48px 24px',textAlign:'center',boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
-              <div style={{ fontSize:36,marginBottom:10 }}>✨</div>
+            <div style={{ background:'white',borderRadius:12,padding:'36px 24px',textAlign:'center',boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+              <div style={{ fontSize:32,marginBottom:10 }}>✨</div>
               <div style={{ fontWeight:700,color:'#0f172a',fontSize:15,marginBottom:6 }}>No plan generated yet</div>
-              <div style={{ fontSize:12,color:'#94a3b8' }}>Select a channel and date, then click "Generate Day Plan".<br/>Claude will write actual Telegram-ready posts for the whole day.</div>
+              <div style={{ fontSize:12,color:'#94a3b8',marginBottom:16 }}>Select a channel and date, then click "Generate Day Plan".<br/>Claude will write Telegram-ready posts for the whole day.</div>
+              <div style={{ background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:10,padding:'12px 16px',fontSize:12,color:'#0369a1',textAlign:'left',maxWidth:420,margin:'0 auto' }}>
+                <strong>💡 Tip:</strong> If this channel has no YouTube or Master Class scheduled for this date, the AI will suggest what video topic could be planned — add those ideas to your YT Calendar section.
+              </div>
             </div>
           )}
           <div style={{ display:'flex',flexDirection:'column',gap:12 }}>
@@ -1126,7 +1150,10 @@ function YTCalendarSection({ channels }) {
           </div>
           <div>
             <div style={{ fontWeight:700,fontSize:13,color:'#0f172a',marginBottom:12 }}>{new Date(selDate+'T12:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div>
-            {dayItems.length===0?<div style={{ color:'#94a3b8',fontSize:12 }}>No classes on this date.</div>:dayItems.map(item=>(
+            {dayItems.length===0?<div style={{ color:'#94a3b8',fontSize:12,background:'#fff7f7',border:'1px solid #fee2e2',borderRadius:8,padding:'12px 14px' }}>
+              <div style={{ fontWeight:600,color:'#dc2626',marginBottom:4 }}>No classes on this date</div>
+              <div style={{ color:'#9a3412',fontSize:11 }}>📹 A YouTube class can be planned here — click "+ Add Row" in the Table view to schedule one, then generate a Content Calendar post for it.</div>
+            </div>:dayItems.map(item=>(
               <div key={item._id} style={{ background:'white',borderRadius:10,padding:'12px 14px',marginBottom:10,boxShadow:'0 1px 3px rgba(0,0,0,0.06)',borderLeft:'4px solid #dc2626' }}>
                 <div style={{ fontSize:12,fontWeight:700,color:'#0f172a',marginBottom:3 }}>{item.subject}</div>
                 <div style={{ fontSize:11,color:'#64748b',marginBottom:3 }}>⏰ {item.time} · 📂 {item.classType}</div>
@@ -1257,7 +1284,10 @@ function MasterClassSection({ channels }) {
           </div>
           <div>
             <div style={{ fontWeight:700,fontSize:13,color:'#0f172a',marginBottom:12 }}>{new Date(selDate+'T12:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div>
-            {dayItems.length===0?<div style={{ color:'#94a3b8',fontSize:12 }}>No master classes on this date.</div>:dayItems.map(item=>(
+            {dayItems.length===0?<div style={{ color:'#94a3b8',fontSize:12,background:'#f5f3ff',border:'1px solid #ede9fe',borderRadius:8,padding:'12px 14px' }}>
+              <div style={{ fontWeight:600,color:'#7c3aed',marginBottom:4 }}>No master classes on this date</div>
+              <div style={{ color:'#6d28d9',fontSize:11 }}>🎓 A Master Class can be planned here — add it in Table view, then generate a Content Calendar announcement for this channel.</div>
+            </div>:dayItems.map(item=>(
               <div key={item._id} style={{ background:'white',borderRadius:10,padding:'12px 14px',marginBottom:10,boxShadow:'0 1px 3px rgba(0,0,0,0.06)',borderLeft:'4px solid #8b5cf6' }}>
                 <div style={{ fontSize:12,fontWeight:700,color:'#0f172a',marginBottom:3 }}>{item.seriesName||item.subject}</div>
                 <div style={{ fontSize:11,color:'#64748b',marginBottom:3 }}>⏰ {item.time}</div>
