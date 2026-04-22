@@ -64,7 +64,7 @@ export async function GET() {
         if (t.includes('youtube.com') || t.includes('youtu.be') || t.includes('class') || t.includes('lecture')) type = 'YouTube Class';
         else if (t.includes('mcq') || t.includes('question') || t.includes('answer') || t.includes('option')) type = 'MCQ';
         else if (t.includes('pdf') || t.includes('notes') || t.includes('download')) type = 'PDF Notes';
-        else if (t.includes('current affairs') || t.includes('ca ') || t.includes("today's")) type = 'Current Affairs';
+        else if (t.includes('current affairs') || t.includes('ca ') || t.includes('today\'s')) type = 'Current Affairs';
         else type = 'Post';
         preview = post.text.slice(0, 80);
       }
