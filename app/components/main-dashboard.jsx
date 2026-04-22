@@ -1144,75 +1144,216 @@ function PostHistoryItem({ item, onDelete }) {
 }
 
 // ─── YOUTUBE CALENDAR SECTION ─────────────────────────────────────────────────
-function YTCalendarSection({ channels }) {
-  const [classes, setClasses]           = useState([]);
-  const [xlsxLoaded, setXlsxLoaded]     = useState(false);
-  const [view, setView]                 = useState('calendar'); // 'calendar' | 'list'
-  const [selDate, setSelDate]           = useState(new Date().toISOString().slice(0,10));
-  const [modal, setModal]               = useState(null); // class item for compose
-  const [selChannels, setSelChannels]   = useState([]);
-  const [postMsg, setPostMsg]           = useState('');
-  const [posting, setPosting]           = useState(false);
-  const [postedItems, setPostedItems]   = useState([]);
-  const [imageUrl, setImageUrl]         = useState('');
+// ─── Shared editable schedule table ──────────────────────────────────────────
+function ScheduleTable({ rows, cols, onRowsChange, accentColor }) {
+  const [sortCol,   setSortCol]   = useState(null);
+  const [sortAsc,   setSortAsc]   = useState(true);
+  const [filter,    setFilter]    = useState('');
+  const [pasteErr,  setPasteErr]  = useState('');
 
-  // Load SheetJS from CDN
+  // Load SheetJS once
+  const [xlsxReady, setXlsxReady] = useState(!!window.XLSX);
   useEffect(() => {
-    if (window.XLSX) { setXlsxLoaded(true); return; }
+    if (window.XLSX) return;
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = () => setXlsxLoaded(true);
+    s.onload = () => setXlsxReady(true);
     document.head.appendChild(s);
   }, []);
 
-  function parseExcel(file) {
+  // Parse Excel file
+  function handleFile(file) {
+    if (!xlsxReady) return;
     const reader = new FileReader();
     reader.onload = e => {
       try {
         const wb = window.XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
-        const parsed = rows.filter(r => r['YT Topics'] || r['YT Time']).map((r, i) => ({
-          id: `yt_${i}`,
-          date: r['Date'] ? new Date(r['Date']).toISOString().slice(0,10) : '',
-          subject: r['Subject'] || '',
-          faculty: r['Faculty'] || '',
-          category: r['Category'] || '',
-          ytTime: r['YT Time'] || '',
-          ytTopics: r['YT Topics'] || '',
-          classStatus: r['Class Status'] || '',
-          thumbnailStatus: r['Thumbnail Status'] || '',
-          remarks: r['Remarks'] || '',
-        }));
-        setClasses(parsed);
-      } catch { alert('Could not parse Excel. Ensure columns match the expected format.'); }
+        const raw = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const parsed = raw.map((r, i) => {
+          const out = { _id: Date.now() + i };
+          cols.forEach(c => { out[c.key] = String(r[c.label] ?? r[c.key] ?? ''); });
+          return out;
+        }).filter(r => cols.some(c => r[c.key]?.trim()));
+        onRowsChange(parsed);
+        setPasteErr('');
+      } catch { setPasteErr('Could not parse file. Check column names match.'); }
     };
     reader.readAsArrayBuffer(file);
   }
 
-  // Classes for selected date
-  const dayClasses = classes.filter(c => c.date === selDate);
-  // Group by date for calendar dots
-  const classByDate = {};
-  classes.forEach(c => { if (c.date) classByDate[c.date] = (classByDate[c.date] || 0) + 1; });
+  // Parse pasted tab-separated data (from Excel/Sheets copy-paste)
+  function handlePaste(e) {
+    const text = e.clipboardData?.getData('text') || '';
+    if (!text.includes('\t')) return; // let normal paste happen if not tab-separated
+    e.preventDefault();
+    const lines = text.trim().split('\n').filter(Boolean);
+    if (!lines.length) return;
+    // First row: try to detect if it's a header row
+    const firstCells = lines[0].split('\t').map(c => c.trim());
+    const isHeader = firstCells.some(c => cols.some(col => col.label.toLowerCase() === c.toLowerCase() || col.key.toLowerCase() === c.toLowerCase()));
+    const dataLines = isHeader ? lines.slice(1) : lines;
+    const headerCells = isHeader ? firstCells : null;
 
-  // Get thumbnail from YouTube URL in topic
-  function extractYtId(text) {
-    const m = text.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    return m ? m[1] : null;
+    const parsed = dataLines.map((line, i) => {
+      const cells = line.split('\t').map(c => c.trim());
+      const out = { _id: Date.now() + i };
+      cols.forEach((col, ci) => {
+        if (headerCells) {
+          // Map by header name
+          const hi = headerCells.findIndex(h => h.toLowerCase() === col.label.toLowerCase() || h.toLowerCase() === col.key.toLowerCase());
+          out[col.key] = hi >= 0 ? (cells[hi] || '') : '';
+        } else {
+          out[col.key] = cells[ci] || '';
+        }
+      });
+      return out;
+    }).filter(r => cols.some(c => r[c.key]?.trim()));
+    if (parsed.length) { onRowsChange([...rows, ...parsed]); setPasteErr(''); }
+    else setPasteErr('Could not parse pasted data. Make sure columns match.');
   }
 
-  function openCompose(cls) {
-    const thumb = extractYtId(cls.ytTopics);
-    setImageUrl(thumb ? `https://img.youtube.com/vi/${thumb}/maxresdefault.jpg` : '');
-    setPostMsg(`🎓 <b>${cls.subject} — YouTube Class</b>\n\n📌 <b>Topic:</b> ${cls.ytTopics}\n👨‍🏫 <b>Faculty:</b> ${cls.faculty}\n⏰ <b>Time:</b> ${cls.ytTime}\n\n✅ Join now and ace your UGC NET!\n📲 testbook.com/ugc-net-coaching`);
+  // Add empty row
+  function addRow() {
+    const r = { _id: Date.now() };
+    cols.forEach(c => { r[c.key] = ''; });
+    onRowsChange([...rows, r]);
+  }
+
+  // Delete row
+  function delRow(id) { onRowsChange(rows.filter(r => r._id !== id)); }
+
+  // Edit cell
+  function editCell(id, key, val) {
+    onRowsChange(rows.map(r => r._id === id ? { ...r, [key]: val } : r));
+  }
+
+  // Sort
+  function toggleSort(key) {
+    if (sortCol === key) setSortAsc(a => !a);
+    else { setSortCol(key); setSortAsc(true); }
+  }
+
+  // Filter + sort
+  const filtered = rows
+    .filter(r => !filter || cols.some(c => (r[c.key] || '').toLowerCase().includes(filter.toLowerCase())))
+    .sort((a, b) => {
+      if (!sortCol) return 0;
+      const va = (a[sortCol] || '').toLowerCase(), vb = (b[sortCol] || '').toLowerCase();
+      return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+
+  const cellStyle = { padding: '0', border: 'none', background: 'transparent', fontSize: 12, color: '#374151', width: '100%', outline: 'none', fontFamily: 'inherit' };
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input placeholder="🔍 Search all columns…" value={filter} onChange={e => setFilter(e.target.value)}
+          style={{ flex: 1, minWidth: 160, padding: '7px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, outline: 'none' }} />
+        <label style={{ background: accentColor, color: 'white', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: xlsxReady ? 'pointer' : 'not-allowed', flexShrink: 0 }}>
+          📁 Upload Excel {!xlsxReady && '(loading…)'}
+          <input type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} disabled={!xlsxReady} onChange={e => e.target.files[0] && handleFile(e.target.files[0])} />
+        </label>
+        <button onClick={addRow} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: '#374151', flexShrink: 0 }}>+ Add Row</button>
+        {rows.length > 0 && <button onClick={() => onRowsChange([])} style={{ background: '#fee2e2', border: 'none', borderRadius: 8, padding: '7px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: '#dc2626', flexShrink: 0 }}>Clear All</button>}
+        <span style={{ fontSize: 11, color: '#94a3b8' }}>{rows.length} rows</span>
+      </div>
+
+      {pasteErr && <div style={{ background: '#fee2e2', color: '#dc2626', padding: '8px 12px', borderRadius: 8, fontSize: 12, marginBottom: 10 }}>⚠️ {pasteErr}</div>}
+
+      {/* Paste hint */}
+      <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '8px 14px', fontSize: 11, color: '#0369a1', marginBottom: 12 }}>
+        💡 <strong>Tip:</strong> Copy rows from Excel/Google Sheets and paste anywhere in the table below. Or upload an Excel file above. You can also type directly into any cell.
+      </div>
+
+      {/* Table */}
+      <div style={{ overflowX: 'auto', borderRadius: 10, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+        onPaste={handlePaste}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 700 }}>
+          <thead>
+            <tr style={{ background: '#0f172a' }}>
+              {cols.map(c => (
+                <th key={c.key} onClick={() => toggleSort(c.key)}
+                  style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'white', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+                  {c.label} {sortCol === c.key ? (sortAsc ? '↑' : '↓') : ''}
+                </th>
+              ))}
+              <th style={{ padding: '10px 8px', color: 'white', fontSize: 10, width: 40 }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr><td colSpan={cols.length + 1} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: 13, background: 'white' }}>
+                No data yet. Upload Excel, paste from spreadsheet, or click "+ Add Row".
+              </td></tr>
+            ) : filtered.map((row, ri) => (
+              <tr key={row._id} style={{ background: ri % 2 === 0 ? 'white' : '#fafafa', borderBottom: '1px solid #f1f5f9' }}>
+                {cols.map(c => (
+                  <td key={c.key} style={{ padding: '0', borderRight: '1px solid #f1f5f9', minWidth: c.width || 100 }}>
+                    {c.type === 'select' ? (
+                      <select value={row[c.key]} onChange={e => editCell(row._id, c.key, e.target.value)}
+                        style={{ ...cellStyle, padding: '8px 10px', cursor: 'pointer', background: 'transparent' }}>
+                        <option value="">—</option>
+                        {c.options.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : (
+                      <input value={row[c.key]} onChange={e => editCell(row._id, c.key, e.target.value)}
+                        placeholder={c.placeholder || c.label}
+                        style={{ ...cellStyle, padding: '8px 10px' }} />
+                    )}
+                  </td>
+                ))}
+                <td style={{ padding: '6px 8px', textAlign: 'center', background: ri % 2 === 0 ? 'white' : '#fafafa' }}>
+                  <button onClick={() => delRow(row._id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', fontSize: 14, lineHeight: 1 }}>✕</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── YOUTUBE CALENDAR SECTION ─────────────────────────────────────────────────
+function YTCalendarSection({ channels }) {
+  const YT_COLS = [
+    { key: 'date',     label: 'Date',          width: 110, placeholder: 'YYYY-MM-DD' },
+    { key: 'subject',  label: 'Subject',        width: 120 },
+    { key: 'email',    label: 'Faculty Email',  width: 160 },
+    { key: 'category', label: 'Exam Category',  width: 120 },
+    { key: 'topic',    label: 'Class Topic',    width: 200 },
+    { key: 'time',     label: 'Class Time',     width: 100, placeholder: 'e.g. 6:00 PM' },
+    { key: 'status',   label: 'Class Status',   width: 110, type: 'select', options: ['Scheduled','Live','Done','Cancelled'] },
+    { key: 'classType',label: 'Class Type',     width: 110, type: 'select', options: ['Free','Paid','Trial'] },
+  ];
+
+  const [rows,        setRows]       = useState([]);
+  const [modal,       setModal]      = useState(null);
+  const [selChannels, setSelChannels] = useState([]);
+  const [postMsg,     setPostMsg]    = useState('');
+  const [imageUrl,    setImageUrl]   = useState('');
+  const [posting,     setPosting]    = useState(false);
+  const [postedItems, setPostedItems] = useState([]);
+  const [view,        setView]       = useState('table'); // 'table' | 'calendar'
+
+  // Calendar state
+  const today = new Date();
+  const [calYear,  setCalYear]  = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [selDate,  setSelDate]  = useState(today.toISOString().slice(0,10));
+
+  function openCompose(row) {
+    const ytId = (row.topic || '').match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)?.[1];
+    setImageUrl(ytId ? `https://img.youtube.com/vi/${ytId}/maxresdefault.jpg` : '');
+    setPostMsg(`▶️ <b>${row.subject} — YouTube Class</b>\n\n📌 <b>Topic:</b> ${row.topic}\n⏰ <b>Time:</b> ${row.time}\n📂 <b>Type:</b> ${row.classType || 'Free'}\n\n✅ Join now!\n📲 testbook.com/ugc-net-coaching`);
     setSelChannels([]);
-    setModal(cls);
+    setModal(row);
   }
 
   async function postClass() {
-    if (!selChannels.length) { alert('Select at least one channel'); return; }
-    if (!postMsg.trim()) { alert('Write a message first'); return; }
+    if (!selChannels.length) return alert('Select at least one channel');
     setPosting(true);
     try {
       const res = await fetch('/api/calendar', {
@@ -1221,169 +1362,127 @@ function YTCalendarSection({ channels }) {
         body: JSON.stringify({ action: 'post', channelUsernames: selChannels, text: postMsg, imageUrl: imageUrl || undefined, pin: false }),
       });
       const data = await res.json();
-      if (data.results) {
-        data.results.forEach(r => {
-          if (r.success) {
-            setPostedItems(prev => [...prev, { id: `ph_${Date.now()}_${r.channel}`, channel: r.channel, messageId: r.messageId, pinned: r.pinned, preview: postMsg.replace(/<[^>]+>/g,'').slice(0,60) }]);
-          }
-        });
-        setModal(null);
-      }
+      (data.results || []).filter(r => r.success).forEach(r =>
+        setPostedItems(prev => [...prev, { id: `yt_${Date.now()}_${r.channel}`, channel: r.channel, messageId: r.messageId, pinned: r.pinned, preview: postMsg.replace(/<[^>]+>/g,'').slice(0,60) }])
+      );
+      setModal(null);
     } catch { alert('Network error'); }
     setPosting(false);
   }
 
-  // Calendar grid
-  const today = new Date();
-  const [calYear, setCalYear] = useState(today.getFullYear());
-  const [calMonth, setCalMonth] = useState(today.getMonth());
-  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  // Calendar helpers
+  const classByDate = {};
+  rows.forEach(r => { if (r.date) classByDate[r.date] = (classByDate[r.date] || 0) + 1; });
+  const firstDay    = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const monthName = new Date(calYear, calMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  const dayRows     = rows.filter(r => r.date === selDate);
 
   return (
     <div>
-      <SectionHeader icon="▶️" title="YouTube Class Calendar" subtitle="Upload your YT schedule sheet · view in calendar · post to channels" />
+      <SectionHeader icon="▶️" title="YouTube Class Calendar" subtitle="Enter, paste, or upload your YT schedule · post to channels" />
 
-      {/* Upload */}
-      <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Upload Schedule Excel</div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Columns needed: Date, Subject, Faculty, Category, YT Time, YT Topics, Class Status, Thumbnail Status, Remarks</div>
-          <input type="file" accept=".xlsx,.xls,.csv" disabled={!xlsxLoaded} onChange={e => e.target.files[0] && parseExcel(e.target.files[0])}
-            style={{ fontSize: 12, cursor: xlsxLoaded ? 'pointer' : 'not-allowed' }} />
-          {!xlsxLoaded && <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 8 }}>Loading Excel parser...</span>}
-        </div>
-        {classes.length > 0 && (
-          <div style={{ display: 'flex', gap: 16, marginLeft: 'auto' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>{classes.length}</div>
-              <div style={{ fontSize: 10, color: '#94a3b8' }}>Classes loaded</div>
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {['calendar','list'].map(v => <button key={v} onClick={() => setView(v)} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: view === v ? '#3b82f6' : '#f1f5f9', color: view === v ? 'white' : '#374151' }}>{v === 'calendar' ? '📅 Calendar' : '📋 List'}</button>)}
-            </div>
-          </div>
-        )}
+      {/* View toggle */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {[['table','📋 Table'],['calendar','📅 Calendar']].map(([v,l]) => (
+          <button key={v} onClick={() => setView(v)} style={{ padding: '7px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: view === v ? '#dc2626' : '#f1f5f9', color: view === v ? 'white' : '#374151' }}>{l}</button>
+        ))}
       </div>
 
-      {classes.length === 0 && (
-        <div style={{ background: 'white', borderRadius: 12, padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>▶️</div>
-          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15, marginBottom: 6 }}>No classes loaded yet</div>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>Upload your YouTube class schedule Excel above to see them in calendar view.</div>
+      {view === 'table' && (
+        <div style={{ background: 'white', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 16 }}>
+          <ScheduleTable rows={rows} cols={YT_COLS} onRowsChange={setRows} accentColor="#dc2626" />
+          {rows.length > 0 && (
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => setView('calendar')} style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: 8, padding: '8px 20px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                View in Calendar →
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {classes.length > 0 && view === 'calendar' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+      {view === 'calendar' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
+          {/* Calendar */}
           <div style={{ background: 'white', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y-1); } else setCalMonth(m => m-1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>←</button>
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#0f172a' }}>{monthName}</span>
-              <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y+1); } else setCalMonth(m => m+1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>→</button>
+              <button onClick={() => { calMonth === 0 ? (setCalMonth(11), setCalYear(y=>y-1)) : setCalMonth(m=>m-1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>←</button>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{new Date(calYear, calMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</span>
+              <button onClick={() => { calMonth === 11 ? (setCalMonth(0), setCalYear(y=>y+1)) : setCalMonth(m=>m+1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>→</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 4 }}>
-              {['S','M','T','W','T','F','S'].map((d,i) => <div key={i} style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textAlign: 'center' }}>{d}</div>)}
+              {['S','M','T','W','T','F','S'].map((d,i)=><div key={i} style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textAlign: 'center' }}>{d}</div>)}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
-              {Array.from({ length: firstDay }).map((_,i) => <div key={`e${i}`} />)}
-              {Array.from({ length: daysInMonth }, (_,i) => i+1).map(day => {
+              {Array.from({length: firstDay}).map((_,i)=><div key={`e${i}`}/>)}
+              {Array.from({length: daysInMonth},(_,i)=>i+1).map(day => {
                 const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
                 const cnt = classByDate[key] || 0;
                 const isSel = key === selDate;
-                const isToday = key === today.toISOString().slice(0,10);
                 return (
-                  <div key={day} onClick={() => setSelDate(key)} style={{ minHeight: 44, background: isSel ? '#dc2626' : cnt > 0 ? '#fff7f7' : '#fafafa', borderRadius: 6, padding: '3px 4px', cursor: 'pointer', border: isToday ? '1px solid #fca5a5' : '1px solid transparent' }}>
-                    <div style={{ fontSize: 10, fontWeight: isSel ? 700 : 400, color: isSel ? 'white' : '#374151', textAlign: 'center' }}>{day}</div>
-                    {cnt > 0 && <div style={{ fontSize: 9, color: isSel ? 'rgba(255,255,255,0.9)' : '#dc2626', fontWeight: 700, textAlign: 'center' }}>{cnt} class{cnt > 1 ? 'es' : ''}</div>}
+                  <div key={day} onClick={()=>setSelDate(key)} style={{ minHeight: 44, background: isSel ? '#dc2626' : cnt ? '#fff7f7' : '#fafafa', borderRadius: 6, padding: '3px 4px', cursor: 'pointer' }}>
+                    <div style={{ fontSize: 10, fontWeight: isSel?700:400, color: isSel?'white':'#374151', textAlign: 'center' }}>{day}</div>
+                    {cnt > 0 && <div style={{ fontSize: 9, color: isSel?'rgba(255,255,255,0.9)':'#dc2626', fontWeight: 700, textAlign: 'center' }}>{cnt}</div>}
                   </div>
                 );
               })}
             </div>
           </div>
-
+          {/* Day panel */}
           <div>
             <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 12 }}>
-              {new Date(selDate + 'T12:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} — {dayClasses.length} class{dayClasses.length !== 1 ? 'es' : ''}
+              {new Date(selDate+'T12:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}
             </div>
-            {dayClasses.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 12 }}>No classes scheduled for this date.</div> : dayClasses.map(cls => {
-              const ytId = extractYtId(cls.ytTopics);
-              return (
-                <div key={cls.id} style={{ background: 'white', borderRadius: 10, padding: '12px 14px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: '4px solid #dc2626' }}>
-                  {ytId && <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="thumbnail" style={{ width: '100%', borderRadius: 6, marginBottom: 8, display: 'block' }} onError={e => e.target.style.display='none'} />}
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{cls.subject}</div>
-                  <div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>👨‍🏫 {cls.faculty} · ⏰ {cls.ytTime}</div>
-                  <div style={{ fontSize: 11, color: '#374151', marginBottom: 8, lineHeight: 1.5 }}>📌 {cls.ytTopics}</div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <span style={{ background: cls.classStatus === 'Done' ? '#dcfce7' : '#fef3c7', color: cls.classStatus === 'Done' ? '#15803d' : '#92400e', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 12 }}>{cls.classStatus || 'Pending'}</span>
-                    <button onClick={() => openCompose(cls)} style={{ marginLeft: 'auto', background: '#dc2626', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>📤 Post</button>
+            {dayRows.length === 0
+              ? <div style={{ color: '#94a3b8', fontSize: 12 }}>No classes on this date.</div>
+              : dayRows.map(row => (
+                <div key={row._id} style={{ background: 'white', borderRadius: 10, padding: '12px 14px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: '4px solid #dc2626' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{row.subject}</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>⏰ {row.time} · 📂 {row.classType}</div>
+                  <div style={{ fontSize: 11, color: '#374151', marginBottom: 8 }}>📌 {row.topic}</div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ background: row.status==='Done'?'#dcfce7':'#fef3c7', color: row.status==='Done'?'#15803d':'#92400e', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 12 }}>{row.status||'Scheduled'}</span>
+                    <button onClick={()=>openCompose(row)} style={{ marginLeft: 'auto', background: '#dc2626', color: 'white', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>📤 Post</button>
                   </div>
                 </div>
-              );
-            })}
+              ))
+            }
           </div>
         </div>
       )}
 
-      {classes.length > 0 && view === 'list' && (
-        <div style={{ background: 'white', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-            <thead><tr style={{ background: '#f1f5f9' }}>
-              {['Date','Subject','Faculty','YT Time','Topics','Status',''].map(h => <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#64748b', fontSize: 11, borderBottom: '1px solid #e2e8f0' }}>{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {classes.map(cls => (
-                <tr key={cls.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{cls.date}</td>
-                  <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>{cls.subject}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{cls.faculty}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151' }}>{cls.ytTime}</td>
-                  <td style={{ padding: '8px 12px', color: '#374151', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cls.ytTopics}</td>
-                  <td style={{ padding: '8px 12px' }}><span style={{ background: cls.classStatus === 'Done' ? '#dcfce7' : '#fef3c7', color: cls.classStatus === 'Done' ? '#15803d' : '#92400e', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 12 }}>{cls.classStatus || 'Pending'}</span></td>
-                  <td style={{ padding: '8px 12px' }}><button onClick={() => openCompose(cls)} style={{ background: '#dc2626', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Post</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Post history */}
+      {/* Posted messages */}
       {postedItems.length > 0 && (
         <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>📬 Posted Messages ({postedItems.length})</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>📬 Posted</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {postedItems.map(item => <PostHistoryItem key={item.id} item={item} onDelete={id => setPostedItems(prev => prev.filter(p => p.id !== id))} />)}
+            {postedItems.map(item => <PostHistoryItem key={item.id} item={item} onDelete={id=>setPostedItems(prev=>prev.filter(p=>p.id!==id))} />)}
           </div>
         </div>
       )}
 
       {/* Compose modal */}
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setModal(null)}>
-          <div style={{ background: 'white', borderRadius: 14, padding: 24, width: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={()=>setModal(null)}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 24, width: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.2)' }} onClick={e=>e.stopPropagation()}>
             <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', marginBottom: 16 }}>📤 Post YouTube Class</div>
-            {imageUrl && <img src={imageUrl} alt="thumb" style={{ width: '100%', borderRadius: 8, marginBottom: 12 }} onError={e => e.target.style.display='none'} />}
+            {imageUrl && <img src={imageUrl} alt="thumb" style={{ width: '100%', borderRadius: 8, marginBottom: 12 }} onError={e=>e.target.style.display='none'} />}
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>IMAGE URL (optional — YouTube thumbnail auto-filled)</div>
-              <input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg"
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>IMAGE / THUMBNAIL URL</div>
+              <input value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="Auto-detected from YouTube link in topic"
                 style={{ width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
             </div>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>MESSAGE</div>
-              <textarea value={postMsg} onChange={e => setPostMsg(e.target.value)} rows={6}
+              <textarea value={postMsg} onChange={e=>setPostMsg(e.target.value)} rows={6}
                 style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.5, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
             </div>
-            <div style={{ marginBottom: 14 }}>
-              <ChannelMultiSelect channels={channels} selected={selChannels} onChange={setSelChannels} />
-            </div>
+            <div style={{ marginBottom: 14 }}><ChannelMultiSelect channels={channels} selected={selChannels} onChange={setSelChannels} /></div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={postClass} disabled={posting || !selChannels.length}
-                style={{ flex: 1, background: posting ? '#94a3b8' : '#dc2626', color: 'white', border: 'none', borderRadius: 8, padding: '10px', cursor: posting ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 13 }}>
-                {posting ? 'Posting...' : `📤 Post to ${selChannels.length} channel${selChannels.length !== 1 ? 's' : ''}`}
+              <button onClick={postClass} disabled={posting||!selChannels.length} style={{ flex: 1, background: posting?'#94a3b8':'#dc2626', color: 'white', border: 'none', borderRadius: 8, padding: 10, cursor: posting?'not-allowed':'pointer', fontWeight: 700, fontSize: 13 }}>
+                {posting ? 'Posting…' : `📤 Post to ${selChannels.length} channel${selChannels.length!==1?'s':''}`}
               </button>
-              <button onClick={() => setModal(null)} style={{ flex: 0.5, background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, padding: '10px', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Cancel</button>
+              <button onClick={()=>setModal(null)} style={{ flex: 0.5, background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, padding: 10, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -1391,178 +1490,127 @@ function YTCalendarSection({ channels }) {
     </div>
   );
 }
-
 // ─── MASTER CLASS CALENDAR SECTION ───────────────────────────────────────────
 function MasterClassSection({ channels }) {
-  const [classes, setClasses]           = useState([]);
-  const [xlsxLoaded, setXlsxLoaded]     = useState(false);
-  const [modal, setModal]               = useState(null);
-  const [selChannels, setSelChannels]   = useState([]);
-  const [postMsg, setPostMsg]           = useState('');
-  const [posting, setPosting]           = useState(false);
-  const [postedItems, setPostedItems]   = useState([]);
-  const [selDate, setSelDate]           = useState(new Date().toISOString().slice(0,10));
+  const MC_COLS = [
+    { key: 'date',       label: 'Date',          width: 110, placeholder: 'YYYY-MM-DD' },
+    { key: 'subject',    label: 'Subject',        width: 120 },
+    { key: 'email',      label: 'Faculty Email',  width: 160 },
+    { key: 'category',   label: 'Exam Category',  width: 120 },
+    { key: 'time',       label: 'Time',           width: 100, placeholder: 'e.g. 3:00 PM' },
+    { key: 'seriesName', label: 'Series Name',    width: 160 },
+    { key: 'topic',      label: 'Class Topic',    width: 200 },
+    { key: 'status',     label: 'Class Status',   width: 110, type: 'select', options: ['Scheduled','Live','Done','Cancelled'] },
+  ];
+  const [rows,        setRows]       = useState([]);
+  const [modal,       setModal]      = useState(null);
+  const [selChannels, setSelChannels] = useState([]);
+  const [postMsg,     setPostMsg]    = useState('');
+  const [posting,     setPosting]    = useState(false);
+  const [postedItems, setPostedItems] = useState([]);
+  const [view,        setView]       = useState('table');
+  const today = new Date();
+  const [calYear,  setCalYear]  = useState(today.getFullYear());
+  const [calMonth, setCalMonth] = useState(today.getMonth());
+  const [selDate,  setSelDate]  = useState(today.toISOString().slice(0,10));
 
-  useEffect(() => {
-    if (window.XLSX) { setXlsxLoaded(true); return; }
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload = () => setXlsxLoaded(true);
-    document.head.appendChild(s);
-  }, []);
-
-  function parseExcel(file) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const wb = window.XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = window.XLSX.utils.sheet_to_json(ws, { defval: '' });
-        const parsed = rows.filter(r => r['Master Class Time'] || r['MC SERIES NAME']).map((r, i) => ({
-          id: `mc_${i}`,
-          date: r['Date'] ? new Date(r['Date']).toISOString().slice(0,10) : '',
-          subject: r['Subject'] || '',
-          faculty: r['Faculty'] || '',
-          mcCategory: r['MC Category'] || '',
-          mcTime: r['Master Class Time'] || '',
-          seriesName: r['MC SERIES NAME'] || '',
-          topic: r['Master Class Topic (To be filled by Faculty)'] || r['Master Class Topic'] || '',
-          classStatus: r['Class Status'] || '',
-          remarks: r['Remarks'] || '',
-        }));
-        setClasses(parsed);
-      } catch { alert('Could not parse Excel. Check the column names.'); }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-
-  function openCompose(cls) {
-    setPostMsg(`🎓 <b>${cls.subject} — Master Class</b>\n\n📚 <b>Series:</b> ${cls.seriesName}\n📌 <b>Topic:</b> ${cls.topic}\n👨‍🏫 <b>Faculty:</b> ${cls.faculty}\n⏰ <b>Time:</b> ${cls.mcTime}\n\n🔥 Don't miss this class! Join now.\n📲 testbook.com/ugc-net-coaching`);
+  function openCompose(row) {
+    setPostMsg(`🎓 <b>${row.subject} — Master Class</b>\n\n📚 <b>Series:</b> ${row.seriesName}\n📌 <b>Topic:</b> ${row.topic}\n⏰ <b>Time:</b> ${row.time}\n\n🔥 Don't miss it!\n📲 testbook.com/ugc-net-coaching`);
     setSelChannels([]);
-    setModal(cls);
+    setModal(row);
   }
-
   async function postClass() {
-    if (!selChannels.length) { alert('Select at least one channel'); return; }
-    if (!postMsg.trim()) { alert('Write a message first'); return; }
+    if (!selChannels.length) return alert('Select at least one channel');
     setPosting(true);
     try {
-      const res = await fetch('/api/calendar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'post', channelUsernames: selChannels, text: postMsg, pin: false }),
-      });
+      const res = await fetch('/api/calendar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'post', channelUsernames: selChannels, text: postMsg, pin: false }) });
       const data = await res.json();
-      if (data.results) {
-        data.results.forEach(r => {
-          if (r.success) {
-            setPostedItems(prev => [...prev, { id: `ph_${Date.now()}_${r.channel}`, channel: r.channel, messageId: r.messageId, pinned: r.pinned, preview: postMsg.replace(/<[^>]+>/g,'').slice(0,60) }]);
-          }
-        });
-        setModal(null);
-      }
+      (data.results || []).filter(r => r.success).forEach(r => setPostedItems(prev => [...prev, { id: `mc_${Date.now()}_${r.channel}`, channel: r.channel, messageId: r.messageId, pinned: r.pinned, preview: postMsg.replace(/<[^>]+>/g,'').slice(0,60) }]));
+      setModal(null);
     } catch { alert('Network error'); }
     setPosting(false);
   }
-
   const classByDate = {};
-  classes.forEach(c => { if (c.date) classByDate[c.date] = (classByDate[c.date] || 0) + 1; });
-  const dayClasses = classes.filter(c => c.date === selDate);
-  const today = new Date();
-  const [calYear, setCalYear] = useState(today.getFullYear());
-  const [calMonth, setCalMonth] = useState(today.getMonth());
-  const firstDay = new Date(calYear, calMonth, 1).getDay();
-  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  rows.forEach(r => { if (r.date) classByDate[r.date] = (classByDate[r.date] || 0) + 1; });
+  const firstDay    = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const dayRows     = rows.filter(r => r.date === selDate);
 
   return (
     <div>
-      <SectionHeader icon="🎓" title="Master Class Calendar" subtitle="Upload your MC schedule · view in calendar · post announcements" />
-
-      <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Upload Master Class Schedule</div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>Columns: Date, Subject, Faculty, MC Category, Master Class Time, MC SERIES NAME, Master Class Topic, Class Status, Remarks</div>
-        <input type="file" accept=".xlsx,.xls,.csv" disabled={!xlsxLoaded} onChange={e => e.target.files[0] && parseExcel(e.target.files[0])} style={{ fontSize: 12 }} />
-        {classes.length > 0 && <span style={{ marginLeft: 12, fontSize: 12, color: '#10b981', fontWeight: 700 }}>✅ {classes.length} master classes loaded</span>}
+      <SectionHeader icon="🎓" title="Master Class Calendar" subtitle="Enter, paste, or upload your MC schedule · post announcements" />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {[['table','📋 Table'],['calendar','📅 Calendar']].map(([v,l]) => (
+          <button key={v} onClick={()=>setView(v)} style={{ padding: '7px 18px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: view===v?'#8b5cf6':'#f1f5f9', color: view===v?'white':'#374151' }}>{l}</button>
+        ))}
       </div>
-
-      {classes.length === 0 ? (
-        <div style={{ background: 'white', borderRadius: 12, padding: '48px', textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>🎓</div>
-          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>No master classes loaded</div>
-          <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>Upload your master class schedule Excel to get started.</div>
+      {view === 'table' && (
+        <div style={{ background: 'white', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 16 }}>
+          <ScheduleTable rows={rows} cols={MC_COLS} onRowsChange={setRows} accentColor="#8b5cf6" />
+          {rows.length > 0 && <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}><button onClick={()=>setView('calendar')} style={{ background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 8, padding: '8px 20px', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>View in Calendar →</button></div>}
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+      )}
+      {view === 'calendar' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
           <div style={{ background: 'white', borderRadius: 12, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <button onClick={() => { if (calMonth === 0) { setCalMonth(11); setCalYear(y=>y-1); } else setCalMonth(m=>m-1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>←</button>
-              <span style={{ fontWeight: 700, fontSize: 14 }}>{new Date(calYear, calMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</span>
-              <button onClick={() => { if (calMonth === 11) { setCalMonth(0); setCalYear(y=>y+1); } else setCalMonth(m=>m+1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>→</button>
+              <button onClick={()=>{ calMonth===0?(setCalMonth(11),setCalYear(y=>y-1)):setCalMonth(m=>m-1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>←</button>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>{new Date(calYear,calMonth).toLocaleDateString('en-IN',{month:'long',year:'numeric'})}</span>
+              <button onClick={()=>{ calMonth===11?(setCalMonth(0),setCalYear(y=>y+1)):setCalMonth(m=>m+1); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer' }}>→</button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2, marginBottom: 4 }}>
-              {['S','M','T','W','T','F','S'].map((d,i) => <div key={i} style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textAlign: 'center' }}>{d}</div>)}
+              {['S','M','T','W','T','F','S'].map((d,i)=><div key={i} style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textAlign: 'center' }}>{d}</div>)}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', gap: 2 }}>
-              {Array.from({ length: firstDay }).map((_,i) => <div key={`e${i}`} />)}
-              {Array.from({ length: daysInMonth },(_,i)=>i+1).map(day => {
-                const key = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                const cnt = classByDate[key] || 0;
-                const isSel = key === selDate;
-                return (
-                  <div key={day} onClick={() => setSelDate(key)} style={{ minHeight: 44, background: isSel ? '#8b5cf6' : cnt > 0 ? '#f5f3ff' : '#fafafa', borderRadius: 6, padding: '3px 4px', cursor: 'pointer' }}>
-                    <div style={{ fontSize: 10, fontWeight: isSel ? 700 : 400, color: isSel ? 'white' : '#374151', textAlign: 'center' }}>{day}</div>
-                    {cnt > 0 && <div style={{ fontSize: 9, color: isSel ? 'rgba(255,255,255,0.9)' : '#8b5cf6', fontWeight: 700, textAlign: 'center' }}>{cnt}</div>}
-                  </div>
-                );
+              {Array.from({length:firstDay}).map((_,i)=><div key={`e${i}`}/>)}
+              {Array.from({length:daysInMonth},(_,i)=>i+1).map(day=>{
+                const key=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const cnt=classByDate[key]||0; const isSel=key===selDate;
+                return (<div key={day} onClick={()=>setSelDate(key)} style={{ minHeight: 44, background: isSel?'#8b5cf6':cnt?'#f5f3ff':'#fafafa', borderRadius: 6, padding: '3px 4px', cursor: 'pointer' }}>
+                  <div style={{ fontSize: 10, fontWeight: isSel?700:400, color: isSel?'white':'#374151', textAlign: 'center' }}>{day}</div>
+                  {cnt>0&&<div style={{ fontSize: 9, color: isSel?'rgba(255,255,255,0.9)':'#8b5cf6', fontWeight: 700, textAlign: 'center' }}>{cnt}</div>}
+                </div>);
               })}
             </div>
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 12 }}>
-              {new Date(selDate+'T12:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})} — {dayClasses.length} class{dayClasses.length!==1?'es':''}
-            </div>
-            {dayClasses.length === 0 ? <div style={{ color: '#94a3b8', fontSize: 12 }}>No master classes on this date.</div> : dayClasses.map(cls => (
-              <div key={cls.id} style={{ background: 'white', borderRadius: 10, padding: '12px 14px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: '4px solid #8b5cf6' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{cls.seriesName || cls.subject}</div>
-                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>👨‍🏫 {cls.faculty} · ⏰ {cls.mcTime}</div>
-                <div style={{ fontSize: 11, color: '#374151', marginBottom: 8, lineHeight: 1.5 }}>📌 {cls.topic || '(topic TBD)'}</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f172a', marginBottom: 12 }}>{new Date(selDate+'T12:00:00').toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'})}</div>
+            {dayRows.length===0 ? <div style={{ color:'#94a3b8', fontSize: 12 }}>No master classes on this date.</div>
+              : dayRows.map(row=>(<div key={row._id} style={{ background: 'white', borderRadius: 10, padding: '12px 14px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderLeft: '4px solid #8b5cf6' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{row.seriesName || row.subject}</div>
+                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>⏰ {row.time}</div>
+                <div style={{ fontSize: 11, color: '#374151', marginBottom: 8 }}>📌 {row.topic || '(topic TBD)'}</div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <span style={{ background: '#f5f3ff', color: '#6d28d9', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 12 }}>{cls.mcCategory}</span>
-                  <button onClick={() => openCompose(cls)} style={{ marginLeft: 'auto', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>📤 Post</button>
+                  <span style={{ background: '#f5f3ff', color: '#6d28d9', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 12 }}>{row.category}</span>
+                  <button onClick={()=>openCompose(row)} style={{ marginLeft: 'auto', background: '#8b5cf6', color: 'white', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>📤 Post</button>
                 </div>
-              </div>
-            ))}
+              </div>))
+            }
           </div>
         </div>
       )}
-
       {postedItems.length > 0 && (
         <div style={{ background: 'white', borderRadius: 12, padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>📬 Posted Messages</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>📬 Posted</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {postedItems.map(item => <PostHistoryItem key={item.id} item={item} onDelete={id => setPostedItems(prev => prev.filter(p => p.id !== id))} />)}
+            {postedItems.map(item=><PostHistoryItem key={item.id} item={item} onDelete={id=>setPostedItems(prev=>prev.filter(p=>p.id!==id))} />)}
           </div>
         </div>
       )}
-
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setModal(null)}>
-          <div style={{ background: 'white', borderRadius: 14, padding: 24, width: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={()=>setModal(null)}>
+          <div style={{ background: 'white', borderRadius: 14, padding: 24, width: 480, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.2)' }} onClick={e=>e.stopPropagation()}>
             <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', marginBottom: 16 }}>📤 Post Master Class</div>
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 4 }}>MESSAGE</div>
-              <textarea value={postMsg} onChange={e => setPostMsg(e.target.value)} rows={7}
-                style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.5, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
+              <textarea value={postMsg} onChange={e=>setPostMsg(e.target.value)} rows={7} style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontFamily: 'monospace', lineHeight: 1.5, resize: 'vertical', outline: 'none', boxSizing: 'border-box' }} />
             </div>
-            <div style={{ marginBottom: 14 }}>
-              <ChannelMultiSelect channels={channels} selected={selChannels} onChange={setSelChannels} />
-            </div>
+            <div style={{ marginBottom: 14 }}><ChannelMultiSelect channels={channels} selected={selChannels} onChange={setSelChannels} /></div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={postClass} disabled={posting || !selChannels.length}
-                style={{ flex: 1, background: posting ? '#94a3b8' : '#8b5cf6', color: 'white', border: 'none', borderRadius: 8, padding: '10px', cursor: posting ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 13 }}>
-                {posting ? 'Posting...' : `📤 Post to ${selChannels.length} channel${selChannels.length !== 1 ? 's' : ''}`}
+              <button onClick={postClass} disabled={posting||!selChannels.length} style={{ flex: 1, background: posting?'#94a3b8':'#8b5cf6', color: 'white', border: 'none', borderRadius: 8, padding: 10, cursor: posting?'not-allowed':'pointer', fontWeight: 700, fontSize: 13 }}>
+                {posting?'Posting…':`📤 Post to ${selChannels.length} channel${selChannels.length!==1?'s':''}`}
               </button>
-              <button onClick={() => setModal(null)} style={{ flex: 0.5, background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, padding: '10px', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Cancel</button>
+              <button onClick={()=>setModal(null)} style={{ flex: 0.5, background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, padding: 10, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -1570,6 +1618,7 @@ function MasterClassSection({ channels }) {
     </div>
   );
 }
+
 
 // ─── PROMOTIONS SECTION ───────────────────────────────────────────────────────
 function PromotionsSection({ channels }) {
