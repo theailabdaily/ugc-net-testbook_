@@ -1,162 +1,240 @@
-export const dynamic = 'force-dynamic';
+import Anthropic from '@anthropic-ai/sdk';
 
-const BOT = process.env.TELEGRAM_BOT_TOKEN;
-
-async function tg(endpoint, payload) {
-  const res = await fetch(`https://api.telegram.org/bot${BOT}/${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  return res.json();
-}
-
-function botError(desc) {
-  if (!desc) return 'Telegram API error';
-  if (desc.includes('bot is not a member') || desc.includes('chat not found'))
-    return 'Bot is not in this channel. Add it as admin first.';
-  if (desc.includes('not enough rights'))
-    return 'Bot needs admin rights with Post Messages permission.';
-  if (desc.includes('message to delete not found'))
-    return 'Message already deleted or not found.';
-  return desc;
-}
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 export async function POST(request) {
   try {
     const body = await request.json();
     const { action } = body;
 
-    if (action === 'generate') {
-      const { channelUsername, channelTitle, subject, contentTypes, subscribers, bestHours, date } = body;
-      const dateStr = new Date(date + 'T12:00:00').toLocaleDateString('en-IN', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-      });
-      const topTypes = (contentTypes || []).map(c => c.type).join(', ') || 'MCQ, PDF Notes, YouTube Class Link';
+    if (action === 'generate') return await generateDayPlan(body);
+    if (action === 'post')     return await postToTelegram(body);
+    if (action === 'delete')   return await deleteFromTelegram(body);
 
-      const prompt = `You are a Telegram content manager for Testbook UGC NET.
+    return Response.json({ success: false, error: 'Unknown action: ' + action });
+  } catch (e) {
+    console.error('[calendar] top-level error:', e.message);
+    return Response.json({ success: false, error: e.message });
+  }
+}
 
-Generate a complete day plan for:
-Channel: ${channelTitle} (@${channelUsername})
+// ─── Generate Day Plan ──────────────────────────────────────────────────────
+
+async function generateDayPlan({ channelUsername, channelTitle, subject, contentTypes, subscribers, bestHours, date }) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return Response.json({ success: false, error: 'ANTHROPIC_API_KEY not set in Vercel environment variables' });
+  }
+
+  const anthropic = new Anthropic({ apiKey });
+
+  const hours = (bestHours && bestHours.length) ? bestHours.join(', ') : '8:00 AM, 12:00 PM, 6:00 PM, 8:30 PM';
+
+  const contentMix = (contentTypes && contentTypes.length)
+    ? contentTypes.map(ct => `${ct.type} (avg ${ct.avgViews} views, ${ct.rate}% rate)`).join('; ')
+    : 'Quiz/Poll, YouTube Class Link, PDF Notes, PYQ Discussion, Current Affairs';
+
+  const subsFormatted = (subscribers || 0).toLocaleString('en-IN');
+
+  const prompt = `You are an expert Telegram content strategist for UGC NET exam preparation at Testbook.
+Generate a full posting plan for ONE day for this channel:
+
+Channel: @${channelUsername} (${channelTitle || subject})
 Subject: ${subject}
-Subscribers: ${Number(subscribers || 0).toLocaleString('en-IN')}
-Date: ${dateStr}
-Best Hours: ${(bestHours || ['8:00am','12:00pm','6:00pm','8:00pm']).join(', ')}
-Content mix: ${topTypes}
+Subscribers: ${subsFormatted}
+Best posting hours: ${hours}
+Content types that perform well: ${contentMix}
+Date: ${date}
 
-Return ONLY a JSON array (no markdown, no code fences).
+Generate exactly 5 posts that are READY TO SEND on Telegram — not templates, actual complete posts.
 
-For non-MCQ posts use:
-{"time":"7:00 AM","type":"Current Affairs","emoji":"📰","text":"Telegram-ready message with HTML bold tags, emojis, real ${subject} content for UGC NET. Max 350 chars.","pin":false,"rationale":"why this slot"}
+Return ONLY a valid JSON object with this exact structure (no markdown fences, no extra text):
 
-For MCQ posts use THIS EXACT structure:
-{"time":"8:00 AM","type":"MCQ","emoji":"🧪","question":"Full question text for UGC NET ${subject} max 255 chars","options":["Option A","Option B","Option C","Option D"],"correct_option_id":2,"explanation":"Brief explanation max 180 chars","pin":false,"rationale":"why MCQ at this time"}
+{
+  "posts": [
+    {
+      "id": "p1",
+      "time": "8:00 AM",
+      "type": "MCQ",
+      "pin": false,
+      "question": "Which of the following statements about [specific UGC NET ${subject} topic] is CORRECT?",
+      "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+      "correct_option_id": 0,
+      "explanation": "Option A is correct because [specific reason relevant to ${subject}]",
+      "rationale": "Morning MCQ drives early engagement and reinforces yesterday's concept"
+    },
+    {
+      "id": "p2",
+      "time": "12:00 PM",
+      "type": "Current Affairs",
+      "pin": false,
+      "text": "📰 <b>Daily Current Affairs — ${subject}</b>\\n\\n[Write 3-5 specific, real current affairs bullet points relevant to UGC NET ${subject}]\\n\\n📚 Share with your friends!\\n@${channelUsername}",
+      "rationale": "Afternoon CA keeps students engaged during lunch break"
+    },
+    {
+      "id": "p3",
+      "time": "4:00 PM",
+      "type": "PDF Notes",
+      "pin": false,
+      "text": "📄 <b>[Specific Topic Name] — Quick Notes</b>\\n\\n[Write 5-8 actual important points about a specific ${subject} topic for UGC NET]\\n\\n💡 Save this for quick revision!\\n@${channelUsername}",
+      "rationale": "Afternoon study time — concise notes perform best"
+    },
+    {
+      "id": "p4",
+      "time": "6:30 PM",
+      "type": "PYQ Discussion",
+      "pin": false,
+      "text": "📝 <b>PYQ Discussion — ${subject}</b>\\n\\n[Write an actual previous year question from UGC NET ${subject} with detailed explanation]\\n\\n🎯 Practise PYQs daily!\\n@${channelUsername}",
+      "rationale": "Evening PYQ practice is most popular — students revise before bed"
+    },
+    {
+      "id": "p5",
+      "time": "8:30 PM",
+      "type": "YouTube Class Link",
+      "pin": true,
+      "text": "▶️ <b>Tonight's Live Class — ${subject}</b>\\n\\n📌 Topic: [Specific topic for tonight]\\n⏰ Time: 8:30 PM IST\\n\\n🔴 Join now on Testbook App!\\n📲 testbook.com/ugc-net-coaching\\n\\n@${channelUsername}",
+      "rationale": "Evening class announcement pinned for maximum visibility"
+    }
+  ]
+}
 
 Rules:
-- Generate 5-7 posts spread across the day
-- Types: MCQ, PDF Notes, YouTube Class Link, Voice Note Class, PYQ Discussion, Current Affairs, Promotional Post
-- Include 2-3 MCQ posts using the EXACT MCQ structure with question/options/correct_option_id/explanation
-- Write REAL ${subject} UGC NET content
-- Pin exactly ONE post
-- HTML only in text field: only b and i tags
-- MCQ options: 4 strings max 100 chars each
-- correct_option_id is 0-indexed integer`;
+- All text MUST be specific to UGC NET ${subject} — use real topics, actual concepts, real PYQ themes
+- Telegram HTML: use <b> for bold only — no <i>, no <a> tags
+- Newlines in JSON strings must be \\n (escaped)
+- "pin": true only for the most important post of the day
+- correct_option_id is 0-indexed (0=A, 1=B, 2=C, 3=D)
+- Return ONLY the JSON object`;
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY || '',
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 2500,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) return Response.json({ success: false, error: data?.error?.message || 'Claude error' }, { status: 500 });
+  let raw;
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 3000,
+      messages: [{ role: 'user', content: prompt }]
+    });
+    raw = response.content[0].text.trim();
+  } catch (e) {
+    console.error('[calendar generate] Anthropic API error:', e.message);
+    return Response.json({ success: false, error: 'AI error: ' + e.message });
+  }
 
-      const raw = data.content?.find(b => b.type === 'text')?.text || '';
-      const clean = raw.replace(/```json|```/g, '').trim();
-      const posts = JSON.parse(clean);
-      const tagged = posts.map((p, i) => ({ ...p, id: `post_${Date.now()}_${i}`, status: 'pending' }));
-      return Response.json({ success: true, posts: tagged });
+  try {
+    // Strip any accidental markdown fences
+    const clean = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const parsed = JSON.parse(clean);
+    if (!parsed.posts || !Array.isArray(parsed.posts)) {
+      throw new Error('Response missing posts array');
     }
+    return Response.json({ success: true, posts: parsed.posts });
+  } catch (e) {
+    console.error('[calendar generate] JSON parse error:', e.message, '\nRaw:', raw.slice(0, 300));
+    return Response.json({ success: false, error: 'Failed to parse AI response. Please retry.' });
+  }
+}
 
-    if (action === 'post') {
-      if (!BOT) return Response.json({ success: false, error: 'TELEGRAM_BOT_TOKEN not configured' }, { status: 500 });
+// ─── Post to Telegram ───────────────────────────────────────────────────────
 
-      const { channelUsernames, channelUsername, text, pin, type, question, options, correct_option_id, explanation, imageUrl } = body;
-      const targets = channelUsernames || (channelUsername ? [channelUsername] : []);
-      if (!targets.length) return Response.json({ success: false, error: 'No channels specified' }, { status: 400 });
+async function postToTelegram({ channelUsernames, text, imageUrl, pin, type, question, options, correct_option_id, explanation }) {
+  if (!BOT_TOKEN) {
+    return Response.json({ success: false, error: 'TELEGRAM_BOT_TOKEN not set in Vercel environment variables' });
+  }
 
-      const results = [];
-      for (const username of targets) {
-        let sendData;
-        try {
-          if (type === 'MCQ' && question && Array.isArray(options) && options.length === 4) {
-            sendData = await tg('sendPoll', {
-              chat_id: `@${username}`,
-              question: question.slice(0, 255),
-              options: options.map(o => String(o).slice(0, 100)),
+  const results = await Promise.all(
+    (channelUsernames || []).map(async (username) => {
+      const chatId = '@' + username.replace(/^@/, '');
+      try {
+        let msgId;
+
+        if (type === 'MCQ' && question && options && options.length) {
+          // Send as Telegram quiz poll
+          const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPoll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              question: question.slice(0, 255),  // Telegram limit
+              options: options.map(o => ({ text: String(o).slice(0, 100) })),
               type: 'quiz',
-              correct_option_id: Number(correct_option_id) || 0,
+              correct_option_id: Number(correct_option_id ?? 0),
               explanation: (explanation || '').slice(0, 200),
-              is_anonymous: true,
-            });
-          } else if (imageUrl) {
-            sendData = await tg('sendPhoto', {
-              chat_id: `@${username}`,
+              is_anonymous: true
+            })
+          });
+          const data = await res.json();
+          if (!data.ok) return { channel: username, success: false, error: data.description };
+          msgId = data.result.message_id;
+
+        } else if (imageUrl) {
+          // Send photo with caption
+          const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
               photo: imageUrl,
               caption: (text || '').slice(0, 1024),
-              parse_mode: 'HTML',
-            });
-          } else {
-            sendData = await tg('sendMessage', {
-              chat_id: `@${username}`,
-              text: text || '',
-              parse_mode: 'HTML',
-              disable_web_page_preview: false,
-            });
-          }
+              parse_mode: 'HTML'
+            })
+          });
+          const data = await res.json();
+          if (!data.ok) return { channel: username, success: false, error: data.description };
+          msgId = data.result.message_id;
 
-          if (!sendData.ok) {
-            results.push({ channel: username, success: false, error: botError(sendData.description) });
-            continue;
-          }
-
-          const messageId = sendData.result.message_id;
-          let pinned = false;
-          if (pin && messageId) {
-            const pinData = await tg('pinChatMessage', {
-              chat_id: `@${username}`,
-              message_id: messageId,
-              disable_notification: true,
-            });
-            pinned = pinData.ok;
-          }
-          results.push({ channel: username, success: true, messageId, pinned });
-        } catch (e) {
-          results.push({ channel: username, success: false, error: e.message });
+        } else {
+          // Send text message
+          const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text: (text || '').slice(0, 4096),
+              parse_mode: 'HTML'
+            })
+          });
+          const data = await res.json();
+          if (!data.ok) return { channel: username, success: false, error: data.description };
+          msgId = data.result.message_id;
         }
+
+        // Pin if requested
+        let pinned = false;
+        if (pin && msgId) {
+          const pinRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/pinChatMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, message_id: msgId, disable_notification: true })
+          });
+          const pinData = await pinRes.json();
+          pinned = pinData.ok;
+        }
+
+        return { channel: username, success: true, messageId: msgId, pinned };
+      } catch (e) {
+        return { channel: username, success: false, error: e.message };
       }
+    })
+  );
 
-      return Response.json({ success: true, results });
-    }
+  return Response.json({ success: true, results });
+}
 
-    if (action === 'delete') {
-      if (!BOT) return Response.json({ success: false, error: 'TELEGRAM_BOT_TOKEN not configured' }, { status: 500 });
-      const { channelUsername, messageId } = body;
-      const data = await tg('deleteMessage', { chat_id: `@${channelUsername}`, message_id: messageId });
-      return Response.json({ success: data.ok, error: data.ok ? null : botError(data.description) });
-    }
+// ─── Delete from Telegram ───────────────────────────────────────────────────
 
-    return Response.json({ success: false, error: 'Unknown action' }, { status: 400 });
-
-  } catch (err) {
-    console.error('Calendar route error:', err);
-    return Response.json({ success: false, error: err.message || 'Server error' }, { status: 500 });
+async function deleteFromTelegram({ channelUsername, messageId }) {
+  if (!BOT_TOKEN) {
+    return Response.json({ success: false, error: 'TELEGRAM_BOT_TOKEN not configured' });
   }
+
+  const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: '@' + (channelUsername || '').replace(/^@/, ''),
+      message_id: messageId
+    })
+  });
+  const data = await res.json();
+
+  return Response.json({ success: data.ok, error: data.description });
 }
