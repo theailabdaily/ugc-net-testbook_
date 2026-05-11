@@ -237,19 +237,20 @@ function PulseCard({ label, value, sub, delta, tag, color }) {
 }
 
 // ── Overview section — operator's morning briefing (real data only) ────────
-function OverviewSection({ channels, postCounts = {}, postItems = {}, lastFetched, onNavigate }) {
-  // Date keys
-  const today      = new Date().toISOString().slice(0,10);
-  const yesterday  = new Date(Date.now() - 86400000).toISOString().slice(0,10);
-  const sevenAgo   = new Date(Date.now() - 7*86400000).toISOString().slice(0,10);
-  const todayLabel = new Date().toLocaleDateString('en-IN',{ weekday:'long', day:'numeric', month:'long' });
+function OverviewSection({ channels, postCounts = {}, postItems = {}, lastFetched, onNavigate, snapshots = {} }) {
+  // Date keys in IST — must match how /api/posts and /api/snapshots key their data
+  const istDate    = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Kolkata' });
+  const today      = istDate(0);
+  const yesterday  = istDate(-1);
+  const sevenAgo   = istDate(-7);
+  const todayLabel = new Date().toLocaleDateString('en-IN',{ weekday:'long', day:'numeric', month:'long', timeZone:'Asia/Kolkata' });
 
   // Real subscriber metrics — from /api/channels (live Bot API)
   const totalSubs = channels.reduce((a,c)=>a+c.subs,0);
 
-  // Subscriber deltas — require localStorage snapshots; null if no snapshot yet
-  const ySnap = loadSnapshot(yesterday);
-  const wSnap = loadSnapshot(sevenAgo);
+  // Subscriber deltas — Supabase-backed snapshots from /api/snapshots
+  const ySnap = snapshots[yesterday] || null;
+  const wSnap = snapshots[sevenAgo]  || null;
   const subsYesterday = ySnap ? Object.values(ySnap).reduce((a,v)=>a+(Number(v)||0),0) : null;
   const subsWeekAgo   = wSnap ? Object.values(wSnap).reduce((a,v)=>a+(Number(v)||0),0) : null;
   const delta1d = subsYesterday !== null ? totalSubs - subsYesterday : null;
@@ -312,7 +313,7 @@ function OverviewSection({ channels, postCounts = {}, postItems = {}, lastFetche
         <PulseCard
           label="TOTAL SUBSCRIBERS"
           value={totalSubs.toLocaleString('en-IN')}
-          sub={delta1d !== null ? `${fmtDelta(delta1d)} vs yesterday` : 'No snapshot yet — keep visiting daily'}
+          sub={delta1d !== null ? `${fmtDelta(delta1d)} vs yesterday` : 'First snapshot lands at 9 AM IST tomorrow'}
           delta={delta1d}
           tag="LIVE"
           color="#3b82f6"
@@ -342,7 +343,7 @@ function OverviewSection({ channels, postCounts = {}, postItems = {}, lastFetche
         <PulseCard
           label="7-DAY GROWTH"
           value={delta7d !== null ? fmtDelta(delta7d) : '—'}
-          sub={delta7d !== null ? 'vs 7 days ago (snapshot)' : 'Building history — check back daily'}
+          sub={delta7d !== null ? 'vs 7 days ago' : 'Building history — needs 7 days of cron snapshots'}
           delta={delta7d}
           tag="SNAPSHOT"
           color="#06b6d4"
@@ -463,13 +464,13 @@ function OverviewSection({ channels, postCounts = {}, postItems = {}, lastFetche
       {/* HONEST GAP CALLOUT */}
       <details style={{ background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:10,padding:'12px 16px' }}>
         <summary style={{ fontSize:12,fontWeight:600,color:'#475569',cursor:'pointer',userSelect:'none' }}>
-          🔎 What's not on this dashboard and why
+          🔎 What's on this dashboard and why
         </summary>
         <div style={{ fontSize:11,color:'#64748b',lineHeight:1.7,marginTop:10 }}>
-          <strong>What Telegram Bot API gives us:</strong> live subscriber counts, post content, post timestamps. That's it.<br/>
-          <strong>What's not possible:</strong> per-post view counts, forwards, engagement rate, joined/left counts — Telegram does not expose these to bots. Capturing them would require an MTProto user-bot integration.<br/>
-          <strong>How subscriber deltas work:</strong> every page load saves a local snapshot of all 25 sub counts. Visit daily to build history; 7-day delta needs ≥7 days of visits.<br/>
-          <strong>Idle alert window:</strong> 48 hours — that's how far back <code>getUpdates</code> can practically look. Older history would need a daily cron storing posts to a DB.
+          <strong>Posts:</strong> captured live by webhook — Telegram pushes each post the moment it goes out, we store it in Supabase. Survives across devices, no data loss.<br/>
+          <strong>Subscriber growth:</strong> daily snapshot at 9 AM IST via Vercel Cron → Supabase. 7-day delta needs ≥7 days of cron runs.<br/>
+          <strong>What's still not possible:</strong> per-post view counts, forwards, engagement rate, joined/left counts — Telegram Bot API doesn't expose these. Would need MTProto user-bot integration.<br/>
+          <strong>Idle alert window:</strong> 48 hours (today + yesterday) — we have full history beyond this but the alert intentionally uses a tight window.
         </div>
       </details>
     </div>
@@ -1691,6 +1692,7 @@ export default function Dashboard() {
   const [postCounts,setPostCounts]=useState({});
   const [postItems, setPostItems] = useState({});
   const [postNote,  setPostNote]  = useState('');
+  const [snapshots, setSnapshots] = useState({});
 
   const today = new Date().toISOString().slice(0,10);
   const isToday = selDate === today;
@@ -1710,6 +1712,13 @@ export default function Dashboard() {
   useEffect(()=>{
     fetch('/api/posts').then(r=>r.json()).then(data=>{
       if (data.success) { setPostCounts(data.counts||{}); setPostItems(data.posts||{}); setPostNote(data.note||''); }
+    }).catch(()=>{});
+  },[]);
+
+  // Fetch server-side subscriber snapshots (daily cron writes these to Supabase)
+  useEffect(()=>{
+    fetch('/api/snapshots').then(r=>r.json()).then(data=>{
+      if (data.success) setSnapshots(data.snapshots || {});
     }).catch(()=>{});
   },[]);
 
@@ -1754,7 +1763,7 @@ export default function Dashboard() {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} * { box-sizing: border-box; }`}</style>
       <Sidebar active={section} onNav={setSection} totalSubs={totalSubs} lastFetched={lastFetched} />
       <main style={{ flex:1,padding:'28px 32px',overflowY:'auto',minWidth:0 }}>
-        {section==='overview'    && <OverviewSection     channels={channels} postCounts={postCounts} postItems={postItems} lastFetched={lastFetched} onNavigate={setSection} />}
+        {section==='overview'    && <OverviewSection     channels={channels} postCounts={postCounts} postItems={postItems} lastFetched={lastFetched} onNavigate={setSection} snapshots={snapshots} />}
         {section==='channels'    && <ChannelsSection     channels={channels} selectedDate={selDate} onDateChange={setSelDate} postCounts={postCounts} postItems={postItems} />}
         {section==='competitive' && <CompetitiveSection  channels={channels} competitorData={compData} competitorLoading={compLoading} />}
         {section==='insights'    && <InsightsSection     channels={channels} competitorData={compData} selectedDate={selDate} />}
