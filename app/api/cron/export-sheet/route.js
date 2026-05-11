@@ -127,6 +127,22 @@ export async function GET(request) {
   if (!SHEET_ID)              return Response.json({ ok: false, error: 'sheet_id_not_set' });
 
   try {
+    // 0. Run deletion-check probe first (non-fatal if audit chat not configured)
+    //    Probes posts from last 2 days — most deletions happen close to posting time
+    if (process.env.TELEGRAM_AUDIT_CHAT_ID) {
+      try {
+        const origin    = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+        if (origin) {
+          const checkRes  = await fetch(`${origin}/api/cron/check-deletions?force=1&days=2`, { cache: 'no-store' });
+          const checkData = await checkRes.json();
+          console.log('[export-sheet] deletion-check result:', JSON.stringify(checkData));
+        }
+      } catch (e) {
+        // Non-fatal — proceed with export even if probe fails
+        console.error('[export-sheet] deletion-check failed (non-fatal):', e.message);
+      }
+    }
+
     // 1. Pull data from Supabase — INCLUDE deleted_at
     const sinceIso = new Date(Date.now() - 30 * 86400000).toISOString();
     const [postsRes, snapsRes] = await Promise.all([
