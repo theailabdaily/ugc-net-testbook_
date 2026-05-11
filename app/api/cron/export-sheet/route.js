@@ -3,7 +3,10 @@
 // Triggered by Vercel Cron at 04:00 UTC (09:30 IST) — see vercel.json.
 // Manual trigger: /api/cron/export-sheet?force=1
 //
-// Auth: Google service account JWT (zero deps — uses Node's built-in crypto).
+// v2: handles deleted_at.
+//   • "All Posts" tab has a "Deleted (IST)" column — empty if live, timestamp if soft-deleted.
+//   • "Channel Performance" counts EXCLUDE deleted posts.
+//   • "Last Post" excludes deleted posts.
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -65,7 +68,6 @@ function signJwt(saEmail, privateKey, scope) {
 }
 
 async function getAccessToken() {
-  // Vercel env vars escape newlines as literal \n — undo that for PEM parsing
   const privateKey = (SA_KEY || '').replace(/\\n/g, '\n');
   const jwt = signJwt(SA_EMAIL, privateKey, 'https://www.googleapis.com/auth/spreadsheets');
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -82,8 +84,6 @@ async function getAccessToken() {
 }
 
 async function pushTabs(token, tabs) {
-  // tabs: [{ range, values }]
-  // 1. Clear each tab fully
   const clearRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchClear`,
     {
@@ -94,7 +94,6 @@ async function pushTabs(token, tabs) {
   );
   if (!clearRes.ok) throw new Error('batchClear failed: ' + (await clearRes.text()));
 
-  // 2. Write new values
   const updateRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchUpdate`,
     {
@@ -110,14 +109,17 @@ async function pushTabs(token, tabs) {
   return updateRes.json();
 }
 
-// ── Request guard ────────────────────────────────────────────────────────────
+function fmtIST(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'short', timeStyle: 'short' });
+}
+
 function isAuthorized(request) {
   const ua = request.headers.get('user-agent') || '';
   const { searchParams } = new URL(request.url);
   return ua.toLowerCase().includes('vercel') || searchParams.get('force') === '1';
 }
 
-// ── Main handler ─────────────────────────────────────────────────────────────
 export async function GET(request) {
   if (!isAuthorized(request)) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   if (!sb)                    return Response.json({ ok: false, error: 'supabase_not_configured' });
@@ -125,11 +127,11 @@ export async function GET(request) {
   if (!SHEET_ID)              return Response.json({ ok: false, error: 'sheet_id_not_set' });
 
   try {
-    // 1. Pull data from Supabase
+    // 1. Pull data from Supabase — INCLUDE deleted_at
     const sinceIso = new Date(Date.now() - 30 * 86400000).toISOString();
     const [postsRes, snapsRes] = await Promise.all([
       sb.from('tg_posts')
-        .select('chat_username, posted_at, post_type, preview, message_id')
+        .select('chat_username, posted_at, post_type, preview, message_id, deleted_at')
         .gte('posted_at', sinceIso)
         .order('posted_at', { ascending: false })
         .limit(5000),
@@ -142,7 +144,7 @@ export async function GET(request) {
     const posts = postsRes.data || [];
     const snaps = snapsRes.data || [];
 
-    // 2. Tab: Daily Snapshot (rows = dates, columns = channels, last column = total)
+    // 2. Daily Snapshot tab
     const snapByDate = {};
     for (const r of snaps) {
       if (!snapByDate[r.snapshot_date]) snapByDate[r.snapshot_date] = {};
@@ -162,17 +164,26 @@ export async function GET(request) {
       return row;
     });
 
-    // 3. Tab: All Posts (last 30 days)
-    const postHeader = ['Date (IST)', 'Time (IST)', 'Channel', 'Subject', 'Type', 'Preview', 'Message ID'];
+    // 3. All Posts tab — with Deleted (IST) column
+    const postHeader = ['Date (IST)', 'Time (IST)', 'Channel', 'Subject', 'Type', 'Preview', 'Message ID', 'Deleted (IST)'];
     const postRows = posts.map(p => {
       const ts   = new Date(p.posted_at);
       const date = ts.toLocaleDateString('sv-SE',   { timeZone: 'Asia/Kolkata' });
       const time = ts.toLocaleTimeString('en-IN',   { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
       const ch   = CHANNELS.find(c => c.username.toLowerCase() === (p.chat_username || '').toLowerCase());
-      return [date, time, '@' + (p.chat_username || ''), ch?.subject || '', p.post_type, p.preview, p.message_id];
+      return [
+        date,
+        time,
+        '@' + (p.chat_username || ''),
+        ch?.subject || '',
+        p.post_type,
+        p.preview,
+        p.message_id,
+        fmtIST(p.deleted_at),
+      ];
     });
 
-    // 4. Tab: Channel Performance (latest snapshot + post counts)
+    // 4. Channel Performance — EXCLUDE deleted from counts and last-post
     const latestSnap   = snapByDate[dates[0]] || {};
     const last7dIso    = new Date(Date.now() -  7 * 86400000).toISOString();
     const last30dIso   = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -180,17 +191,16 @@ export async function GET(request) {
     const counts30d    = {};
     const lastPostAt   = {};
     for (const p of posts) {
+      if (p.deleted_at) continue;
       const u = (p.chat_username || '').toLowerCase();
       if (p.posted_at >= last30dIso) counts30d[u] = (counts30d[u] || 0) + 1;
       if (p.posted_at >= last7dIso)  counts7d[u]  = (counts7d[u]  || 0) + 1;
       if (!lastPostAt[u] || p.posted_at > lastPostAt[u]) lastPostAt[u] = p.posted_at;
     }
-    const perfHeader = ['Channel', 'Subject', 'Subscribers', 'Posts (last 7d)', 'Posts (last 30d)', 'Last Post (IST)'];
+    const perfHeader = ['Channel', 'Subject', 'Subscribers', 'Posts (last 7d, live)', 'Posts (last 30d, live)', 'Last Post (IST)'];
     const perfRows = CHANNELS.map(c => {
       const u = c.username.toLowerCase();
-      const last = lastPostAt[u]
-        ? new Date(lastPostAt[u]).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'short', timeStyle: 'short' })
-        : '';
+      const last = lastPostAt[u] ? fmtIST(lastPostAt[u]) : '';
       return ['@' + c.username, c.subject, latestSnap[u] ?? '', counts7d[u] || 0, counts30d[u] || 0, last];
     }).sort((a, b) => (Number(b[2]) || 0) - (Number(a[2]) || 0));
 
@@ -202,11 +212,14 @@ export async function GET(request) {
       { range: "'Channel Performance'!A1", values: [perfHeader, ...perfRows] },
     ]);
 
+    const deletedCount = posts.filter(p => p.deleted_at).length;
+
     return Response.json({
       ok:               true,
       exportedAt:       new Date().toISOString(),
       snapshotDays:     dates.length,
       postsExported:    postRows.length,
+      deletedPosts:     deletedCount,
       channelsTracked:  CHANNELS.length,
       sheetUrl:         `https://docs.google.com/spreadsheets/d/${SHEET_ID}`,
     });
