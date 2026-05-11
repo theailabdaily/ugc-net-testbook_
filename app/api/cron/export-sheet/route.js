@@ -3,10 +3,10 @@
 // Triggered by Vercel Cron at 04:00 UTC (09:30 IST) — see vercel.json.
 // Manual trigger: /api/cron/export-sheet?force=1
 //
-// v2: handles deleted_at.
-//   • "All Posts" tab has a "Deleted (IST)" column — empty if live, timestamp if soft-deleted.
-//   • "Channel Performance" counts EXCLUDE deleted posts.
-//   • "Last Post" excludes deleted posts.
+// v3 — now includes MTProto-enriched fields (views, forwards, reactions, edit_date).
+//   • "All Posts" tab columns: Date/Time/Channel/Subject/Type/Preview/Msg ID/Views/Forwards/Reactions/Edited/Deleted/URL
+//   • "Channel Performance" tab adds: Avg Views (30d live), Median Views, Top Post URL/Views
+//   • NEW tab "Top Posts" — top 100 posts across all channels by views
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -83,6 +83,30 @@ async function getAccessToken() {
   return data.access_token;
 }
 
+// Ensure all 4 tabs exist; create any missing ones via spreadsheets.batchUpdate
+async function ensureTabs(token, names) {
+  const metaRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties.title`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const meta     = await metaRes.json();
+  const existing = new Set((meta.sheets || []).map(s => s.properties.title));
+  const missing  = names.filter(n => !existing.has(n));
+  if (!missing.length) return;
+
+  const addRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body:    JSON.stringify({
+        requests: missing.map(title => ({ addSheet: { properties: { title } } })),
+      }),
+    }
+  );
+  if (!addRes.ok) throw new Error('addSheet failed: ' + (await addRes.text()));
+}
+
 async function pushTabs(token, tabs) {
   const clearRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchClear`,
@@ -109,9 +133,39 @@ async function pushTabs(token, tabs) {
   return updateRes.json();
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function fmtIST(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'short', timeStyle: 'short' });
+}
+
+function reactionsToString(reactions) {
+  if (!reactions || typeof reactions !== 'object') return '';
+  // Sort by count desc; show top 5 emojis only (rest summed)
+  const entries = Object.entries(reactions)
+    .filter(([k]) => !k.startsWith('custom:'))            // skip custom emoji (not renderable in sheet)
+    .sort((a, b) => (b[1] || 0) - (a[1] || 0));
+  if (!entries.length) return '';
+  const top  = entries.slice(0, 5).map(([e, c]) => `${e}${c}`).join(' ');
+  const rest = entries.slice(5).reduce((s, [, c]) => s + c, 0);
+  return rest ? `${top} +${rest}` : top;
+}
+
+function reactionsTotal(reactions) {
+  if (!reactions || typeof reactions !== 'object') return 0;
+  return Object.values(reactions).reduce((s, v) => s + (Number(v) || 0), 0);
+}
+
+function tgUrl(username, messageId) {
+  if (!username || !messageId) return '';
+  return `https://t.me/${username}/${messageId}`;
+}
+
+function median(arr) {
+  if (!arr.length) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
 }
 
 function isAuthorized(request) {
@@ -120,6 +174,7 @@ function isAuthorized(request) {
   return ua.toLowerCase().includes('vercel') || searchParams.get('force') === '1';
 }
 
+// ── Main handler ─────────────────────────────────────────────────────────────
 export async function GET(request) {
   if (!isAuthorized(request)) return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   if (!sb)                    return Response.json({ ok: false, error: 'supabase_not_configured' });
@@ -127,48 +182,57 @@ export async function GET(request) {
   if (!SHEET_ID)              return Response.json({ ok: false, error: 'sheet_id_not_set' });
 
   try {
-    // 0. Run deletion-check probe first (non-fatal if audit chat not configured)
-    //    Probes posts from last 2 days — most deletions happen close to posting time
+    // 0. Deletion-check probe (non-fatal)
     if (process.env.TELEGRAM_AUDIT_CHAT_ID) {
       try {
-        const origin    = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
+        const origin = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null);
         if (origin) {
           const checkRes  = await fetch(`${origin}/api/cron/check-deletions?force=1&days=2`, { cache: 'no-store' });
           const checkData = await checkRes.json();
           console.log('[export-sheet] deletion-check result:', JSON.stringify(checkData));
         }
       } catch (e) {
-        // Non-fatal — proceed with export even if probe fails
         console.error('[export-sheet] deletion-check failed (non-fatal):', e.message);
       }
     }
 
-    // 1. Pull data from Supabase — INCLUDE deleted_at
+    // 1. Pull data — last 30 days for "All Posts" view, plus snapshot history
     const sinceIso = new Date(Date.now() - 30 * 86400000).toISOString();
-    const [postsRes, snapsRes] = await Promise.all([
+    const [recentPostsRes, topPostsRes, snapsRes] = await Promise.all([
       sb.from('tg_posts')
-        .select('chat_username, posted_at, post_type, preview, message_id, deleted_at')
+        .select('chat_username, posted_at, post_type, preview, message_id, deleted_at, views, forwards, reactions, edit_date')
         .gte('posted_at', sinceIso)
         .order('posted_at', { ascending: false })
         .limit(5000),
+      // For Top Posts: all-time top 100 by views, excluding deleted, excluding null views
+      sb.from('tg_posts')
+        .select('chat_username, posted_at, post_type, preview, message_id, views, forwards, reactions')
+        .is('deleted_at', null)
+        .not('views', 'is', null)
+        .order('views', { ascending: false })
+        .limit(100),
       sb.from('tg_subscriber_snapshots')
         .select('chat_username, snapshot_date, subscribers')
         .order('snapshot_date', { ascending: false }),
     ]);
-    if (postsRes.error) throw new Error('posts read: ' + postsRes.error.message);
-    if (snapsRes.error) throw new Error('snapshots read: ' + snapsRes.error.message);
-    const posts = postsRes.data || [];
-    const snaps = snapsRes.data || [];
 
-    // 2. Daily Snapshot tab
+    if (recentPostsRes.error) throw new Error('recent posts read: ' + recentPostsRes.error.message);
+    if (topPostsRes.error)    throw new Error('top posts read: '    + topPostsRes.error.message);
+    if (snapsRes.error)       throw new Error('snapshots read: '    + snapsRes.error.message);
+
+    const posts    = recentPostsRes.data || [];
+    const topPosts = topPostsRes.data    || [];
+    const snaps    = snapsRes.data       || [];
+
+    // 2. Daily Snapshot tab — unchanged
     const snapByDate = {};
     for (const r of snaps) {
       if (!snapByDate[r.snapshot_date]) snapByDate[r.snapshot_date] = {};
       snapByDate[r.snapshot_date][(r.chat_username || '').toLowerCase()] = r.subscribers;
     }
-    const dates       = Object.keys(snapByDate).sort().reverse();
-    const snapHeader  = ['Date (IST)', ...CHANNELS.map(c => c.subject), 'Total'];
-    const snapRows    = dates.map(d => {
+    const dates      = Object.keys(snapByDate).sort().reverse();
+    const snapHeader = ['Date (IST)', ...CHANNELS.map(c => c.subject), 'Total'];
+    const snapRows   = dates.map(d => {
       const row = [d];
       let total = 0;
       for (const c of CHANNELS) {
@@ -180,12 +244,16 @@ export async function GET(request) {
       return row;
     });
 
-    // 3. All Posts tab — with Deleted (IST) column
-    const postHeader = ['Date (IST)', 'Time (IST)', 'Channel', 'Subject', 'Type', 'Preview', 'Message ID', 'Deleted (IST)'];
+    // 3. All Posts tab — enriched with views/forwards/reactions/edited/url
+    const postHeader = [
+      'Date (IST)', 'Time (IST)', 'Channel', 'Subject', 'Type', 'Preview',
+      'Msg ID', 'Views', 'Forwards', 'Reactions', 'Reactions Total',
+      'Edited (IST)', 'Deleted (IST)', 'URL',
+    ];
     const postRows = posts.map(p => {
       const ts   = new Date(p.posted_at);
-      const date = ts.toLocaleDateString('sv-SE',   { timeZone: 'Asia/Kolkata' });
-      const time = ts.toLocaleTimeString('en-IN',   { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
+      const date = ts.toLocaleDateString('sv-SE', { timeZone: 'Asia/Kolkata' });
+      const time = ts.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
       const ch   = CHANNELS.find(c => c.username.toLowerCase() === (p.chat_username || '').toLowerCase());
       return [
         date,
@@ -195,47 +263,103 @@ export async function GET(request) {
         p.post_type,
         p.preview,
         p.message_id,
+        p.views ?? '',
+        p.forwards ?? '',
+        reactionsToString(p.reactions),
+        reactionsTotal(p.reactions) || '',
+        fmtIST(p.edit_date),
         fmtIST(p.deleted_at),
+        tgUrl(p.chat_username, p.message_id),
       ];
     });
 
-    // 4. Channel Performance — EXCLUDE deleted from counts and last-post
-    const latestSnap   = snapByDate[dates[0]] || {};
-    const last7dIso    = new Date(Date.now() -  7 * 86400000).toISOString();
-    const last30dIso   = new Date(Date.now() - 30 * 86400000).toISOString();
-    const counts7d     = {};
-    const counts30d    = {};
-    const lastPostAt   = {};
+    // 4. Channel Performance — enriched with engagement metrics
+    const latestSnap = snapByDate[dates[0]] || {};
+    const last7dIso  = new Date(Date.now() -  7 * 86400000).toISOString();
+    const last30dIso = new Date(Date.now() - 30 * 86400000).toISOString();
+    const byChannel  = {};      // username → { posts7d, posts30d, lastPostAt, views30d:[], topPost }
+
     for (const p of posts) {
       if (p.deleted_at) continue;
       const u = (p.chat_username || '').toLowerCase();
-      if (p.posted_at >= last30dIso) counts30d[u] = (counts30d[u] || 0) + 1;
-      if (p.posted_at >= last7dIso)  counts7d[u]  = (counts7d[u]  || 0) + 1;
-      if (!lastPostAt[u] || p.posted_at > lastPostAt[u]) lastPostAt[u] = p.posted_at;
+      if (!byChannel[u]) byChannel[u] = { posts7d: 0, posts30d: 0, lastPostAt: null, views30d: [], topPost: null };
+      const ch = byChannel[u];
+      if (p.posted_at >= last30dIso) ch.posts30d++;
+      if (p.posted_at >= last7dIso)  ch.posts7d++;
+      if (!ch.lastPostAt || p.posted_at > ch.lastPostAt) ch.lastPostAt = p.posted_at;
+      if (typeof p.views === 'number') {
+        if (p.posted_at >= last30dIso) ch.views30d.push(p.views);
+        if (!ch.topPost || p.views > (ch.topPost.views || 0)) {
+          ch.topPost = { views: p.views, url: tgUrl(p.chat_username, p.message_id) };
+        }
+      }
     }
-    const perfHeader = ['Channel', 'Subject', 'Subscribers', 'Posts (last 7d, live)', 'Posts (last 30d, live)', 'Last Post (IST)'];
+
+    const perfHeader = [
+      'Channel', 'Subject', 'Subscribers',
+      'Posts (7d, live)', 'Posts (30d, live)',
+      'Avg Views (30d)', 'Median Views (30d)',
+      'Top Post Views', 'Top Post URL',
+      'Last Post (IST)',
+    ];
     const perfRows = CHANNELS.map(c => {
-      const u = c.username.toLowerCase();
-      const last = lastPostAt[u] ? fmtIST(lastPostAt[u]) : '';
-      return ['@' + c.username, c.subject, latestSnap[u] ?? '', counts7d[u] || 0, counts30d[u] || 0, last];
+      const u    = c.username.toLowerCase();
+      const ch   = byChannel[u] || { posts7d: 0, posts30d: 0, lastPostAt: null, views30d: [], topPost: null };
+      const avg  = ch.views30d.length ? Math.round(ch.views30d.reduce((a, b) => a + b, 0) / ch.views30d.length) : '';
+      const med  = ch.views30d.length ? median(ch.views30d) : '';
+      return [
+        '@' + c.username,
+        c.subject,
+        latestSnap[u] ?? '',
+        ch.posts7d,
+        ch.posts30d,
+        avg,
+        med,
+        ch.topPost?.views ?? '',
+        ch.topPost?.url   ?? '',
+        ch.lastPostAt ? fmtIST(ch.lastPostAt) : '',
+      ];
     }).sort((a, b) => (Number(b[2]) || 0) - (Number(a[2]) || 0));
 
-    // 5. Push to Sheets
+    // 5. NEW: Top Posts tab — top 100 by views, all-time, live posts only
+    const topHeader = ['Rank', 'Date (IST)', 'Channel', 'Subject', 'Type', 'Preview', 'Views', 'Forwards', 'Reactions', 'URL'];
+    const topRows = topPosts.map((p, i) => {
+      const ch = CHANNELS.find(c => c.username.toLowerCase() === (p.chat_username || '').toLowerCase());
+      return [
+        i + 1,
+        new Date(p.posted_at).toLocaleDateString('sv-SE', { timeZone: 'Asia/Kolkata' }),
+        '@' + (p.chat_username || ''),
+        ch?.subject || '',
+        p.post_type,
+        (p.preview || '').slice(0, 100),
+        p.views ?? '',
+        p.forwards ?? '',
+        reactionsToString(p.reactions),
+        tgUrl(p.chat_username, p.message_id),
+      ];
+    });
+
+    // 6. Push to Sheets — ensure tabs exist first
     const token = await getAccessToken();
+    await ensureTabs(token, ['Daily Snapshot', 'All Posts', 'Channel Performance', 'Top Posts']);
     await pushTabs(token, [
       { range: "'Daily Snapshot'!A1",      values: [snapHeader, ...snapRows] },
       { range: "'All Posts'!A1",           values: [postHeader, ...postRows] },
       { range: "'Channel Performance'!A1", values: [perfHeader, ...perfRows] },
+      { range: "'Top Posts'!A1",           values: [topHeader,  ...topRows]  },
     ]);
 
     const deletedCount = posts.filter(p => p.deleted_at).length;
+    const withViews    = posts.filter(p => typeof p.views === 'number').length;
 
     return Response.json({
       ok:               true,
       exportedAt:       new Date().toISOString(),
       snapshotDays:     dates.length,
       postsExported:    postRows.length,
+      postsWithViews:   withViews,
       deletedPosts:     deletedCount,
+      topPostsExported: topRows.length,
       channelsTracked:  CHANNELS.length,
       sheetUrl:         `https://docs.google.com/spreadsheets/d/${SHEET_ID}`,
     });
