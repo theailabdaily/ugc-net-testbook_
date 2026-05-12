@@ -104,30 +104,30 @@ function heat(value, min, max, palette = 'green') {
 const COLS = [
   { key: 'channel',        label: 'Channel',       sortable: false, accessor: (c) => c.username, sticky: true,
     tip: 'Click row to expand for KPIs + content type breakdown + actions' },
-  { key: 'subscribers',    label: 'Subs',          sortable: true,  accessor: (c) => c.subscribers,        align: 'right',
-    tip: 'Current subscriber count (latest meta snapshot)' },
-  { key: 'subsGained',     label: 'Gained',        sortable: true,  accessor: (c) => c.subsGained,         align: 'right',
-    tip: 'Subs gained in range. Sum of all positive deltas between consecutive snapshots. Sparse until 7+ days of snapshots accumulate.' },
-  { key: 'subsLost',       label: 'Lost',          sortable: true,  accessor: (c) => c.subsLost,           align: 'right',
-    tip: 'Subs lost (left or were removed) in range. Sum of negative deltas. Same data accumulation caveat as Gained.' },
+  { key: 'subscribers',    label: 'Subs',          sortable: true,  accessor: (c) => c.endSubs ?? c.subscribers, align: 'right',
+    tip: 'Subscribers at the END of the date range, from Telegram\u2019s growthGraph. CHANGES with range — pick a historical range to see what subs were on that date.' },
+  { key: 'subsGained',     label: 'Joined',        sortable: true,  accessor: (c) => c.subsGained,         align: 'right',
+    tip: 'New subscribers who joined during the date range. Ground truth from Telegram broadcast stats followersGraph. Daily data goes back to ~Feb 9, 2026.' },
+  { key: 'subsLost',       label: 'Left',          sortable: true,  accessor: (c) => c.subsLost,           align: 'right',
+    tip: 'Subscribers who left during the date range. Ground truth from Telegram broadcast stats. Daily data goes back to ~Feb 9, 2026.' },
   { key: 'notifPct',       label: 'Notif %',       sortable: true,  accessor: (c) => c.notifPct,           align: 'right',
-    tip: '% of subscribers with notifications ON. The stickiness metric — high = engaged audience, low = many silent followers.' },
+    tip: '% of subscribers with notifications ON. Telegram exposes only current value, not range-historical. High = engaged audience, low = many silent followers.' },
   { key: 'posts',          label: 'Posts',         sortable: true,  accessor: (c) => c.postsLive,          align: 'right',
-    tip: 'Live posts (excludes deleted) in range' },
+    tip: 'Live posts (excludes deleted) in range. CHANGES with range.' },
   { key: 'avgViews',       label: 'Avg Views',     sortable: true,  accessor: (c) => c.avgViews,           align: 'right',
-    tip: 'Average views per live post in range. CAUTION: older posts had more time to accumulate views.' },
+    tip: 'Average views per live post in range. CHANGES with range. CAUTION: older posts had more time to accumulate views.' },
   { key: 'engagementRate', label: 'Eng. %',        sortable: true,  accessor: (c) => c.engagementRate,     align: 'right',
-    tip: '(Forwards + Reactions + Replies) / Total Views × 100. Quality signal. Above 0.5% = strong; below 0.15% = passive audience.' },
+    tip: '(Forwards + Reactions + Replies) / Total Views \u00d7 100. CHANGES with range. Above 0.5% = strong; below 0.15% = passive audience.' },
   { key: 'topPostViews',   label: 'Top Post',      sortable: true,  accessor: (c) => c.topPostViews,       align: 'right',
-    tip: 'Views on the best-performing post in range. Click to open the post.' },
+    tip: 'Views on the best-performing post in range. CHANGES with range. Click to open the post.' },
   { key: 'bestHour',       label: 'Best Hr',       sortable: true,  accessor: (c) => c.bestHour,           align: 'right',
-    tip: 'Hour of day (IST) when this channel\u2019s posts get the highest avg views. Requires \u22653 posts at that hour.' },
+    tip: 'Hour of day (IST) when this channel\u2019s posts get the highest avg views. CHANGES with range. Requires \u22653 posts at that hour.' },
   { key: 'topContentType', label: 'Top Type',      sortable: false, accessor: (c) => c.topContentType,     align: 'left',
-    tip: 'Content type with the highest total views in range' },
+    tip: 'Content type with the highest total views in range. CHANGES with range.' },
   { key: 'hoursSinceLastPost', label: 'Last Post', sortable: true,  accessor: (c) => c.hoursSinceLastPost, align: 'right',
-    tip: 'Time since most recent post in range' },
+    tip: 'Time since most recent post in range. CHANGES with range.' },
   { key: 'status',         label: 'Status',        sortable: true,  accessor: (c) => c.status,             align: 'center',
-    tip: 'Active = last post <24h. Quiet = 24\u201348h. Silent = >48h.' },
+    tip: 'Active = last post in range <24h. Quiet = 24\u201348h. Silent = >48h.' },
 ];
 
 // ─────────────────────────── component ───────────────────────────
@@ -271,28 +271,37 @@ export default function ChannelsSection() {
         </div>
       </div>
 
-      {/* Date range picker */}
-      <div style={{ marginBottom: 12 }}>
+      {/* Unified toolbar: date range + search + subject + count */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        flexWrap: 'wrap',
+        padding: '10px 12px',
+        background: '#fff',
+        border: '1px solid #e2e8f0',
+        borderRadius: 10,
+        marginBottom: 12,
+      }}>
         <DateRangePicker value={range} onChange={setRange} />
-      </div>
 
-      {/* Search + subject filter */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search channels..."
-          style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', width: 220 }}
-        />
-        <select
-          value={filterSubj}
-          onChange={(e) => setFilterSubj(e.target.value)}
-          style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'white' }}
-        >
-          {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <div style={{ marginLeft: 'auto', fontSize: 12, color: '#64748b' }}>
-          {loading ? 'Loading…' : `${filtered.length} channels`}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search channels…"
+            style={{ padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, outline: 'none', width: 180 }}
+          />
+          <select
+            value={filterSubj}
+            onChange={(e) => setFilterSubj(e.target.value)}
+            style={{ padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, cursor: 'pointer', background: 'white', minWidth: 90 }}
+          >
+            {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
+            {loading ? 'Loading…' : `${filtered.length} channels`}
+          </div>
         </div>
       </div>
 
@@ -314,9 +323,13 @@ export default function ChannelsSection() {
         rangeLabel={range.preset || 'custom'}
       />
 
-      {/* "How to read" mini help */}
+      {/* Smart help banner — explains data sources */}
       <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#475569', marginBottom: 12, lineHeight: 1.6 }}>
-        💡 <strong>How to read:</strong> Sort by any column · Hover headers for definitions · Click a row to expand details · Numbers shaded as heatmaps (greener = higher) · Notif % is your audience stickiness (engaged vs muted)
+        💡 <strong>Reading this view:</strong>
+        {' '}Sort by any column · hover headers for definitions · click a row to expand details.
+        {' '}<span style={{ color: '#15803d', fontWeight: 600 }}>Range-dependent</span> columns (change with date): Subs, Joined, Left, Posts, Avg Views, Eng %, Top Post, Best Hr, Top Type, Last Post, Status.
+        {' '}<span style={{ color: '#94a3b8', fontWeight: 600 }}>Always-current</span> (Telegram limitation): Notif %.
+        {' '}<span style={{ color: '#0369a1', fontWeight: 600 }}>Joined/Left</span> are ground-truth daily data from Telegram broadcast stats, available back to {data?.channels?.[0] && '~Feb 2026'}.
       </div>
 
       {/* Table */}
@@ -395,8 +408,8 @@ export default function ChannelsSection() {
                           </a>
                         </div>
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, background: heat(ch.subscribers, ranges.subscribers?.min, ranges.subscribers?.max) }}>
-                        {fmtNum(ch.subscribers)}
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, background: heat(ch.endSubs ?? ch.subscribers, ranges.subscribers?.min, ranges.subscribers?.max) }}>
+                        {fmtNum(ch.endSubs ?? ch.subscribers)}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', color: '#15803d', fontWeight: 600 }}>
                         {ch.subsGained > 0 ? '+' + fmtNum(ch.subsGained) : ch.subsGained === 0 ? '0' : '—'}
