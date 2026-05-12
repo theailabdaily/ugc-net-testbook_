@@ -102,20 +102,32 @@ function heat(value, min, max, palette = 'green') {
 
 // ─────────────────────────── columns ───────────────────────────
 const COLS = [
-  { key: 'channel',        label: 'Channel',       sortable: false, accessor: (c) => c.username, sticky: true },
-  { key: 'subscribers',    label: 'Subs',          sortable: true,  accessor: (c) => c.subscribers,        align: 'right' },
-  { key: 'subsDelta',      label: 'Δ Subs',        sortable: true,  accessor: (c) => c.subsDelta,          align: 'right' },
-  { key: 'notifPct',       label: 'Notif %',       sortable: true,  accessor: (c) => c.notifPct,           align: 'right' },
-  { key: 'posts',          label: 'Posts',         sortable: true,  accessor: (c) => c.postsLive,          align: 'right' },
-  { key: 'avgViews',       label: 'Avg Views',     sortable: true,  accessor: (c) => c.avgViews,           align: 'right' },
-  { key: 'medianViews',    label: 'Median Views',  sortable: true,  accessor: (c) => c.medianViews,        align: 'right' },
-  { key: 'engagementRate', label: 'Eng. %',        sortable: true,  accessor: (c) => c.engagementRate,     align: 'right' },
-  { key: 'totalForwards',  label: 'Forwards',      sortable: true,  accessor: (c) => c.totalForwards,      align: 'right' },
-  { key: 'topPostViews',   label: 'Top Post',      sortable: true,  accessor: (c) => c.topPostViews,       align: 'right' },
-  { key: 'bestHour',       label: 'Best Hour',     sortable: true,  accessor: (c) => c.bestHour,           align: 'right' },
-  { key: 'topContentType', label: 'Top Type',      sortable: false, accessor: (c) => c.topContentType,     align: 'left' },
-  { key: 'hoursSinceLastPost', label: 'Last Post', sortable: true,  accessor: (c) => c.hoursSinceLastPost, align: 'right' },
-  { key: 'status',         label: 'Status',        sortable: true,  accessor: (c) => c.status,             align: 'center' },
+  { key: 'channel',        label: 'Channel',       sortable: false, accessor: (c) => c.username, sticky: true,
+    tip: 'Click row to expand for KPIs + content type breakdown + actions' },
+  { key: 'subscribers',    label: 'Subs',          sortable: true,  accessor: (c) => c.subscribers,        align: 'right',
+    tip: 'Current subscriber count (latest meta snapshot)' },
+  { key: 'subsGained',     label: 'Gained',        sortable: true,  accessor: (c) => c.subsGained,         align: 'right',
+    tip: 'Subs gained in range. Sum of all positive deltas between consecutive snapshots. Sparse until 7+ days of snapshots accumulate.' },
+  { key: 'subsLost',       label: 'Lost',          sortable: true,  accessor: (c) => c.subsLost,           align: 'right',
+    tip: 'Subs lost (left or were removed) in range. Sum of negative deltas. Same data accumulation caveat as Gained.' },
+  { key: 'notifPct',       label: 'Notif %',       sortable: true,  accessor: (c) => c.notifPct,           align: 'right',
+    tip: '% of subscribers with notifications ON. The stickiness metric — high = engaged audience, low = many silent followers.' },
+  { key: 'posts',          label: 'Posts',         sortable: true,  accessor: (c) => c.postsLive,          align: 'right',
+    tip: 'Live posts (excludes deleted) in range' },
+  { key: 'avgViews',       label: 'Avg Views',     sortable: true,  accessor: (c) => c.avgViews,           align: 'right',
+    tip: 'Average views per live post in range. CAUTION: older posts had more time to accumulate views.' },
+  { key: 'engagementRate', label: 'Eng. %',        sortable: true,  accessor: (c) => c.engagementRate,     align: 'right',
+    tip: '(Forwards + Reactions + Replies) / Total Views × 100. Quality signal. Above 0.5% = strong; below 0.15% = passive audience.' },
+  { key: 'topPostViews',   label: 'Top Post',      sortable: true,  accessor: (c) => c.topPostViews,       align: 'right',
+    tip: 'Views on the best-performing post in range. Click to open the post.' },
+  { key: 'bestHour',       label: 'Best Hr',       sortable: true,  accessor: (c) => c.bestHour,           align: 'right',
+    tip: 'Hour of day (IST) when this channel\u2019s posts get the highest avg views. Requires \u22653 posts at that hour.' },
+  { key: 'topContentType', label: 'Top Type',      sortable: false, accessor: (c) => c.topContentType,     align: 'left',
+    tip: 'Content type with the highest total views in range' },
+  { key: 'hoursSinceLastPost', label: 'Last Post', sortable: true,  accessor: (c) => c.hoursSinceLastPost, align: 'right',
+    tip: 'Time since most recent post in range' },
+  { key: 'status',         label: 'Status',        sortable: true,  accessor: (c) => c.status,             align: 'center',
+    tip: 'Active = last post <24h. Quiet = 24\u201348h. Silent = >48h.' },
 ];
 
 // ─────────────────────────── component ───────────────────────────
@@ -129,6 +141,12 @@ export default function ChannelsSection() {
   const [sortBy, setSortBy]     = useState('subscribers');
   const [sortDir, setSortDir]   = useState('desc');
   const [expanded, setExpanded] = useState(null);
+
+  // Insights state
+  const [insights, setInsights]           = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError]     = useState(null);
+  const [insightsCollapsed, setInsightsCollapsed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +163,29 @@ export default function ChannelsSection() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [range.from, range.to]);
+
+  // Reset insights whenever range changes — they're range-specific
+  useEffect(() => { setInsights(null); setInsightsError(null); }, [range.from, range.to]);
+
+  const fetchInsights = async () => {
+    if (!data?.channels || data.channels.length === 0) return;
+    setInsightsLoading(true);
+    setInsightsError(null);
+    try {
+      const res  = await fetch('/api/channel-insights', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ channels: data.channels, range }),
+      });
+      const json = await res.json();
+      if (json.ok) setInsights(json.insights);
+      else         setInsightsError(json.error || 'failed');
+    } catch (e) {
+      setInsightsError(e.message);
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
 
   const channels = data?.channels || [];
 
@@ -208,11 +249,12 @@ export default function ChannelsSection() {
   const totals = useMemo(() => {
     if (!filtered.length) return null;
     return {
-      subscribers:   filtered.reduce((s, c) => s + (c.subscribers || 0), 0),
-      subsDelta:     filtered.reduce((s, c) => s + (c.subsDelta || 0), 0),
-      posts:         filtered.reduce((s, c) => s + (c.postsLive || 0), 0),
-      totalViews:    filtered.reduce((s, c) => s + (c.totalViews || 0), 0),
-      totalForwards: filtered.reduce((s, c) => s + (c.totalForwards || 0), 0),
+      subscribers:    filtered.reduce((s, c) => s + (c.subscribers || 0), 0),
+      subsGained:     filtered.reduce((s, c) => s + (c.subsGained || 0), 0),
+      subsLost:       filtered.reduce((s, c) => s + (c.subsLost || 0), 0),
+      posts:          filtered.reduce((s, c) => s + (c.postsLive || 0), 0),
+      totalViews:     filtered.reduce((s, c) => s + (c.totalViews || 0), 0),
+      totalForwards:  filtered.reduce((s, c) => s + (c.totalForwards || 0), 0),
       totalReactions: filtered.reduce((s, c) => s + (c.totalReactions || 0), 0),
     };
   }, [filtered]);
@@ -260,6 +302,23 @@ export default function ChannelsSection() {
         </div>
       )}
 
+      {/* AI Insights panel */}
+      <InsightsPanel
+        insights={insights}
+        loading={insightsLoading}
+        error={insightsError}
+        collapsed={insightsCollapsed}
+        onToggle={() => setInsightsCollapsed((c) => !c)}
+        onGenerate={fetchInsights}
+        onChannelClick={(u) => { setExpanded(u); document.getElementById('ch-row-' + u)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
+        rangeLabel={range.preset || 'custom'}
+      />
+
+      {/* "How to read" mini help */}
+      <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '8px 12px', fontSize: 11, color: '#475569', marginBottom: 12, lineHeight: 1.6 }}>
+        💡 <strong>How to read:</strong> Sort by any column · Hover headers for definitions · Click a row to expand details · Numbers shaded as heatmaps (greener = higher) · Notif % is your audience stickiness (engaged vs muted)
+      </div>
+
       {/* Table */}
       <div style={{ background: 'white', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <div style={{ overflowX: 'auto' }}>
@@ -270,6 +329,7 @@ export default function ChannelsSection() {
                   <th
                     key={c.key}
                     onClick={() => c.sortable && handleSort(c.key)}
+                    title={c.tip || ''}
                     style={{
                       padding: '10px 12px',
                       textAlign: c.align || 'left',
@@ -305,12 +365,13 @@ export default function ChannelsSection() {
                 return (
                   <>
                     <tr
+                      id={'ch-row-' + ch.username}
                       key={ch.username}
                       onClick={() => setExpanded(isExp ? null : ch.username)}
                       style={{
                         borderBottom: '1px solid #f1f5f9',
                         cursor: 'pointer',
-                        background: isExp ? '#f8fafc' : 'white',
+                        background: isExp ? '#fffbeb' : 'white',
                       }}
                     >
                       <td style={{
@@ -337,8 +398,11 @@ export default function ChannelsSection() {
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, background: heat(ch.subscribers, ranges.subscribers?.min, ranges.subscribers?.max) }}>
                         {fmtNum(ch.subscribers)}
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', color: ch.subsDelta > 0 ? '#15803d' : ch.subsDelta < 0 ? '#dc2626' : '#94a3b8' }}>
-                        {fmtDelta(ch.subsDelta)}
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#15803d', fontWeight: 600 }}>
+                        {ch.subsGained > 0 ? '+' + fmtNum(ch.subsGained) : ch.subsGained === 0 ? '0' : '—'}
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', color: '#dc2626', fontWeight: 600 }}>
+                        {ch.subsLost > 0 ? '-' + fmtNum(ch.subsLost) : ch.subsLost === 0 ? '0' : '—'}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', background: heat(ch.notifPct, 55, 80) }}>
                         {fmtPct(ch.notifPct)}
@@ -349,14 +413,8 @@ export default function ChannelsSection() {
                       <td style={{ padding: '10px 12px', textAlign: 'right', background: heat(ch.avgViews, ranges.avgViews?.min, ranges.avgViews?.max) }}>
                         {fmtNum(ch.avgViews)}
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', background: heat(ch.medianViews, ranges.medianViews?.min, ranges.medianViews?.max) }}>
-                        {fmtNum(ch.medianViews)}
-                      </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', background: heat(ch.engagementRate, 0, 5) }}>
                         {fmtPct(ch.engagementRate, 2)}
-                      </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                        {fmtNum(ch.totalForwards)}
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                         {ch.topPostUrl ? (
@@ -404,14 +462,19 @@ export default function ChannelsSection() {
                     TOTAL ({filtered.length})
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtNum(totals.subscribers)}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: totals.subsDelta > 0 ? '#15803d' : totals.subsDelta < 0 ? '#dc2626' : '#475569' }}>
-                    {fmtDelta(totals.subsDelta)}
-                  </td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#15803d' }}>{totals.subsGained ? '+' + fmtNum(totals.subsGained) : '—'}</td>
+                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#dc2626' }}>{totals.subsLost ? '-' + fmtNum(totals.subsLost) : '—'}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>—</td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtNum(totals.posts)}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }} colSpan={3}>—</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>{fmtNum(totals.totalForwards)}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }} colSpan={5}>—</td>
+                  <td colSpan={6} style={{ padding: '10px 12px', textAlign: 'center', color: '#94a3b8', fontStyle: 'italic' }}>
+                    Net subs change: <strong style={{ color: (totals.subsGained - totals.subsLost) >= 0 ? '#15803d' : '#dc2626' }}>
+                      {fmtDelta(totals.subsGained - totals.subsLost)}
+                    </strong>
+                    {' · '}Total views: {fmtNum(totals.totalViews)}
+                    {' · '}Forwards: {fmtNum(totals.totalForwards)}
+                    {' · '}Reactions: {fmtNum(totals.totalReactions)}
+                  </td>
+                  <td style={{ padding: '10px 12px' }} />
                 </tr>
               )}
             </tbody>
@@ -522,6 +585,121 @@ function ExpandedDetails({ ch }) {
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────── AI Insights Panel ───────────────────────────
+function InsightsPanel({ insights, loading, error, collapsed, onToggle, onGenerate, onChannelClick, rangeLabel }) {
+  const CATEGORY_META = {
+    Opportunity:    { color: '#15803d', bg: '#dcfce7', border: '#86efac' },
+    Anomaly:        { color: '#b45309', bg: '#fef3c7', border: '#fcd34d' },
+    Recommendation: { color: '#0369a1', bg: '#dbeafe', border: '#93c5fd' },
+    Pattern:        { color: '#7c3aed', bg: '#ede9fe', border: '#c4b5fd' },
+  };
+  const SEVERITY_PILL = {
+    high:   { bg: '#fee2e2', color: '#991b1b', label: 'HIGH' },
+    medium: { bg: '#fef3c7', color: '#92400e', label: 'MED' },
+    low:    { bg: '#f1f5f9', color: '#475569', label: 'LOW' },
+  };
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #fef9c3 0%, #fde68a 100%)',
+      border: '1px solid #fcd34d',
+      borderRadius: 12,
+      padding: '14px 16px',
+      marginBottom: 14,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: insights || loading ? 10 : 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16 }}>🧠</span>
+          <strong style={{ fontSize: 14, color: '#0f172a' }}>AI Insights</strong>
+          <span style={{ fontSize: 11, color: '#92400e' }}>({rangeLabel})</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(insights || error) && (
+            <button onClick={onToggle} style={{
+              background: 'transparent', border: '1px solid #92400e80', color: '#92400e',
+              padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+            }}>{collapsed ? '▼ Show' : '▲ Hide'}</button>
+          )}
+          <button onClick={onGenerate} disabled={loading} style={{
+            background: loading ? '#94a3b8' : '#0f172a', color: 'white',
+            border: 'none', padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+            cursor: loading ? 'not-allowed' : 'pointer',
+          }}>
+            {loading ? 'Analyzing…' : (insights ? '↻ Regenerate' : '✨ Generate insights')}
+          </button>
+        </div>
+      </div>
+
+      {!insights && !loading && !error && (
+        <div style={{ fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>
+          Get a Claude-powered briefing on this date range: which channels need attention, what's working, what to do this week. Specific channels named, specific numbers cited.
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ fontSize: 12, color: '#92400e' }}>Reading all 25 channels and crafting recommendations… ~10s</div>
+      )}
+
+      {error && (
+        <div style={{ background: '#fff', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#991b1b' }}>
+          <strong>Couldn't generate insights:</strong> {error}
+        </div>
+      )}
+
+      {insights && !collapsed && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 10 }}>
+          {insights.map((ins, i) => {
+            const cat = CATEGORY_META[ins.category] || CATEGORY_META.Pattern;
+            const sev = SEVERITY_PILL[ins.severity] || SEVERITY_PILL.medium;
+            return (
+              <div key={i} style={{
+                background: 'white',
+                borderLeft: `3px solid ${cat.color}`,
+                borderRadius: 6,
+                padding: '10px 12px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 14 }}>{ins.icon || '💡'}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: cat.color, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                      {ins.category}
+                    </span>
+                  </div>
+                  <span style={{ background: sev.bg, color: sev.color, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 8, letterSpacing: '0.05em' }}>
+                    {sev.label}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginTop: 4 }}>
+                  {ins.title}
+                </div>
+                <div style={{ fontSize: 12, color: '#475569', marginTop: 4, lineHeight: 1.5 }}>
+                  {ins.detail}
+                </div>
+                {Array.isArray(ins.channels) && ins.channels.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                    {ins.channels.map((u) => (
+                      <button
+                        key={u}
+                        onClick={() => onChannelClick && onChannelClick(u.toLowerCase())}
+                        style={{
+                          background: '#f1f5f9', color: '#475569',
+                          border: 'none', padding: '2px 7px', borderRadius: 10,
+                          fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                        }}
+                      >@{u}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
