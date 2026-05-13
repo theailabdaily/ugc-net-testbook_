@@ -217,9 +217,13 @@ export default function OverviewSection() {
       {/* Hero KPIs */}
       <HeroKPIStrip current={aggCurr} prior={aggPrior} />
 
-      {/* Quadrant + Top Movers */}
+      {/* Daily Growth Chart + Top Movers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 14, marginBottom: 14 }}>
-        <PortfolioQuadrant channels={currChannels} subjects={SUBJECTS} />
+        <DailyGrowthChart
+          dailyByChannel={data?.dailyByChannel || []}
+          channels={currChannels}
+          subjects={SUBJECTS}
+        />
         <TopMoversPanel
           topGainers={topGainers}
           topLosers={topLosers}
@@ -345,116 +349,237 @@ function HeroKPI({ label, value, delta, invert, tip }) {
   );
 }
 
-// ─────────────────────────── Portfolio Quadrant (SVG) ───────────────────────────
-function PortfolioQuadrant({ channels, subjects }) {
-  if (!channels || channels.length === 0) {
+// ─────────────────────────── Daily Growth Chart ───────────────────────────
+function DailyGrowthChart({ dailyByChannel, channels, subjects }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+
+  // Set of allowed usernames (from filter)
+  const allowedSet = useMemo(() => new Set((channels || []).map((c) => c.username)), [channels]);
+
+  // Aggregate raw daily rows by date, filtering by allowed channels
+  const days = useMemo(() => {
+    const map = new Map();
+    for (const row of dailyByChannel || []) {
+      if (!allowedSet.has(row.channel)) continue;
+      let bucket = map.get(row.date);
+      if (!bucket) {
+        bucket = { date: row.date, joined: 0, left: 0, byChannel: [] };
+        map.set(row.date, bucket);
+      }
+      bucket.joined += row.joined || 0;
+      bucket.left   += row.left || 0;
+      if ((row.joined || 0) + (row.left || 0) > 0) {
+        bucket.byChannel.push({ channel: row.channel, joined: row.joined || 0, left: row.left || 0 });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [dailyByChannel, allowedSet]);
+
+  // Totals
+  const totalJoined = days.reduce((s, d) => s + d.joined, 0);
+  const totalLeft   = days.reduce((s, d) => s + d.left, 0);
+  const totalNet    = totalJoined - totalLeft;
+
+  // 7-day moving average of net
+  const movingAvg = useMemo(() => {
+    return days.map((_, i) => {
+      const window = days.slice(Math.max(0, i - 6), i + 1);
+      const sum = window.reduce((s, d) => s + (d.joined - d.left), 0);
+      return sum / window.length;
+    });
+  }, [days]);
+
+  if (days.length === 0) {
     return (
       <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 18 }}>
-        <h3 style={{ margin: 0, fontSize: 14, color: '#0f172a' }}>Portfolio Quadrant</h3>
-        <div style={{ marginTop: 30, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>No channels in current filter.</div>
-      </div>
-    );
-  }
-
-  const W = 520, H = 400, PAD = 50;
-
-  // X: net growth %, Y: engagement %
-  const points = channels
-    .filter((c) => c.growthPct !== null && c.engagementRate !== null && c.subscribers)
-    .map((c) => ({
-      username: c.username,
-      subject: subjects[c.username] || c.username,
-      x: c.growthPct,
-      y: c.engagementRate,
-      subs: c.subscribers,
-    }));
-
-  if (points.length === 0) {
-    return (
-      <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 18 }}>
-        <h3 style={{ margin: 0, fontSize: 14, color: '#0f172a' }}>Portfolio Quadrant</h3>
-        <div style={{ marginTop: 30, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>
-          Not enough data to plot. Need channels with both growth % and engagement % computed.
+        <h3 style={{ margin: 0, fontSize: 14, color: '#0f172a' }}>📈 Daily Network Growth</h3>
+        <div style={{ marginTop: 40, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>
+          No daily follower data in this range.
         </div>
       </div>
     );
   }
 
-  // Symmetric clamp on X so outliers don't squish the cluster
-  const xs = points.map((p) => p.x);
-  const ys = points.map((p) => p.y);
-  const xMax = Math.max(Math.abs(Math.min(...xs)), Math.abs(Math.max(...xs)), 5);
-  const xMin = -xMax;
-  const yMax = Math.max(...ys, 1);
-  const yMin = 0;
+  const W = 560, H = 320, PAD_L = 50, PAD_R = 16, PAD_T = 20, PAD_B = 40;
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
 
-  // Use median split for quadrant lines instead of zero, so quadrants are population-aware
-  const median = (arr) => { const s = [...arr].sort((a,b)=>a-b); const m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; };
-  const xMid = median(xs);
-  const yMid = median(ys);
+  // Symmetric Y range so zero is in middle
+  const maxJoined = Math.max(...days.map((d) => d.joined), 1);
+  const maxLeft   = Math.max(...days.map((d) => d.left), 1);
+  const yMax = Math.max(maxJoined, maxLeft);
+  // Round up to nice number
+  const niceMax = Math.pow(10, Math.floor(Math.log10(yMax))) * Math.ceil(yMax / Math.pow(10, Math.floor(Math.log10(yMax))));
 
-  const xScale = (v) => PAD + ((v - xMin) / (xMax - xMin)) * (W - 2 * PAD);
-  const yScale = (v) => H - PAD - ((v - yMin) / (yMax - yMin)) * (H - 2 * PAD);
-  const subsToR = (s) => 4 + Math.sqrt(s / 100); // gentle scaling
+  const yScale = (v) => PAD_T + chartH / 2 - (v / niceMax) * (chartH / 2);
+  const xScale = (i) => PAD_L + (chartW / days.length) * (i + 0.5);
+  const barW = Math.min(28, Math.max(3, (chartW / days.length) * 0.7));
+
+  // Y-axis tick values
+  const yTicks = [niceMax, niceMax / 2, 0, -niceMax / 2, -niceMax];
+
+  // Format date for x-axis (show every Nth day to avoid crowding)
+  const xLabelStride = Math.max(1, Math.ceil(days.length / 8));
+  const formatDay = (dateStr) => {
+    const [y, m, d] = dateStr.split('-');
+    const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m,10) - 1];
+    return `${month} ${parseInt(d, 10)}`;
+  };
+
+  // Hover details
+  const hovered = hoverIdx !== null ? days[hoverIdx] : null;
+  const hoveredTopChannels = hovered ? [...hovered.byChannel]
+    .sort((a, b) => (b.joined - b.left) - (a.joined - a.left)).slice(0, 3) : [];
+
+  // Moving avg line points
+  const maLinePoints = days.map((_, i) => `${xScale(i)},${yScale(movingAvg[i])}`).join(' ');
 
   return (
-    <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 16, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Portfolio Quadrant</h3>
-        <div style={{ fontSize: 10, color: '#94a3b8' }}>Growth × Engagement · bubble = subs</div>
+    <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 16, position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+          📈 Daily Network Growth
+        </h3>
+        <div style={{ fontSize: 11, color: '#64748b' }}>
+          <span style={{ color: '#15803d', fontWeight: 700 }}>+{fmtNum(totalJoined)} joined</span>
+          {' · '}
+          <span style={{ color: '#dc2626', fontWeight: 700 }}>-{fmtNum(totalLeft)} left</span>
+          {' · '}
+          <span style={{ color: totalNet >= 0 ? '#15803d' : '#dc2626', fontWeight: 800 }}>
+            net {fmtSigned(totalNet)}
+          </span>
+        </div>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block' }}>
-        {/* Quadrant background tints */}
-        <rect x={xScale(xMid)} y={PAD}             width={W - PAD - xScale(xMid)} height={yScale(yMid) - PAD}        fill="#f0fdf4" />
-        <rect x={PAD}          y={PAD}             width={xScale(xMid) - PAD}     height={yScale(yMid) - PAD}        fill="#fefce8" />
-        <rect x={xScale(xMid)} y={yScale(yMid)}    width={W - PAD - xScale(xMid)} height={H - PAD - yScale(yMid)}    fill="#eff6ff" />
-        <rect x={PAD}          y={yScale(yMid)}    width={xScale(xMid) - PAD}     height={H - PAD - yScale(yMid)}    fill="#fef2f2" />
 
-        {/* Axes */}
-        <line x1={PAD}         y1={H - PAD}        x2={W - PAD}      y2={H - PAD}        stroke="#cbd5e1" strokeWidth="1" />
-        <line x1={PAD}         y1={PAD}            x2={PAD}          y2={H - PAD}        stroke="#cbd5e1" strokeWidth="1" />
-
-        {/* Mid lines */}
-        <line x1={xScale(xMid)} y1={PAD}            x2={xScale(xMid)} y2={H - PAD}        stroke="#94a3b8" strokeWidth="1" strokeDasharray="3,3" />
-        <line x1={PAD}          y1={yScale(yMid)}   x2={W - PAD}      y2={yScale(yMid)}   stroke="#94a3b8" strokeWidth="1" strokeDasharray="3,3" />
-
-        {/* Quadrant labels */}
-        <text x={W - PAD - 8} y={PAD + 14} textAnchor="end" fontSize="10" fontWeight="700" fill="#15803d">★ STARS</text>
-        <text x={PAD + 8}     y={PAD + 14} textAnchor="start" fontSize="10" fontWeight="700" fill="#a16207">CULT FAVS</text>
-        <text x={W - PAD - 8} y={H - PAD - 8} textAnchor="end" fontSize="10" fontWeight="700" fill="#1d4ed8">HOLLOW GROWTH</text>
-        <text x={PAD + 8}     y={H - PAD - 8} textAnchor="start" fontSize="10" fontWeight="700" fill="#b91c1c">AT RISK</text>
-
-        {/* Axis labels */}
-        <text x={W / 2}        y={H - 12} textAnchor="middle" fontSize="11" fill="#475569" fontWeight="600">Net Growth % →</text>
-        <text x={14}           y={H / 2} textAnchor="middle" fontSize="11" fill="#475569" fontWeight="600" transform={`rotate(-90, 14, ${H / 2})`}>
-          Engagement % →
-        </text>
-
-        {/* Axis tick values */}
-        <text x={PAD}          y={H - PAD + 14} textAnchor="middle" fontSize="9" fill="#94a3b8">{xMin.toFixed(0)}%</text>
-        <text x={W - PAD}      y={H - PAD + 14} textAnchor="middle" fontSize="9" fill="#94a3b8">+{xMax.toFixed(0)}%</text>
-        <text x={PAD - 6}      y={PAD + 4} textAnchor="end" fontSize="9" fill="#94a3b8">{yMax.toFixed(1)}%</text>
-        <text x={PAD - 6}      y={H - PAD + 4} textAnchor="end" fontSize="9" fill="#94a3b8">0%</text>
-
-        {/* Bubbles */}
-        {points.map((p) => (
-          <g key={p.username}>
-            <circle
-              cx={xScale(p.x)}
-              cy={yScale(p.y)}
-              r={subsToR(p.subs)}
-              fill="#3b82f6"
-              fillOpacity="0.45"
-              stroke="#1d4ed8"
-              strokeWidth="1"
-            >
-              <title>{p.subject} (@{p.username}) — {fmtNum(p.subs)} subs · {p.x.toFixed(1)}% growth · {p.y.toFixed(2)}% eng</title>
-            </circle>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', overflow: 'visible' }}>
+        {/* Y gridlines + labels */}
+        {yTicks.map((t) => (
+          <g key={t}>
+            <line x1={PAD_L} y1={yScale(t)} x2={W - PAD_R} y2={yScale(t)}
+              stroke={t === 0 ? '#cbd5e1' : '#f1f5f9'} strokeWidth={t === 0 ? 1 : 1} />
+            <text x={PAD_L - 6} y={yScale(t) + 3} textAnchor="end" fontSize="10" fill="#94a3b8">
+              {t > 0 ? '+' : ''}{fmtNum(t)}
+            </text>
           </g>
         ))}
+
+        {/* Bars */}
+        {days.map((d, i) => {
+          const isHover = hoverIdx === i;
+          return (
+            <g key={d.date}
+               onMouseEnter={() => setHoverIdx(i)}
+               onMouseLeave={() => setHoverIdx(null)}
+               style={{ cursor: 'pointer' }}
+            >
+              {/* Invisible hit area for better hover detection */}
+              <rect x={xScale(i) - (chartW / days.length) / 2} y={PAD_T}
+                width={chartW / days.length} height={chartH}
+                fill="transparent" />
+
+              {/* Joined bar (above zero) */}
+              <rect x={xScale(i) - barW / 2} y={yScale(d.joined)}
+                width={barW} height={yScale(0) - yScale(d.joined)}
+                fill={isHover ? '#15803d' : '#22c55e'} rx="1" />
+
+              {/* Left bar (below zero) */}
+              <rect x={xScale(i) - barW / 2} y={yScale(0)}
+                width={barW} height={yScale(-d.left) - yScale(0)}
+                fill={isHover ? '#b91c1c' : '#ef4444'} rx="1" opacity="0.85" />
+            </g>
+          );
+        })}
+
+        {/* 7-day moving avg line for NET */}
+        <polyline
+          points={maLinePoints}
+          fill="none"
+          stroke="#0f172a"
+          strokeWidth="2"
+          strokeDasharray="0"
+          opacity="0.7"
+        />
+
+        {/* X labels */}
+        {days.map((d, i) => {
+          if (i % xLabelStride !== 0 && i !== days.length - 1) return null;
+          return (
+            <text key={d.date} x={xScale(i)} y={H - PAD_B + 14}
+              textAnchor="middle" fontSize="10" fill="#64748b">
+              {formatDay(d.date)}
+            </text>
+          );
+        })}
+
+        {/* Hover indicator: vertical line */}
+        {hovered !== null && (
+          <line x1={xScale(hoverIdx)} y1={PAD_T} x2={xScale(hoverIdx)} y2={H - PAD_B}
+            stroke="#0f172a" strokeWidth="1" strokeDasharray="2,3" opacity="0.3" pointerEvents="none" />
+        )}
       </svg>
-      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, lineHeight: 1.6 }}>
-        <strong>Quadrants split at network median.</strong> ★ Stars = growing AND engaged · Cult favs = small but rabid · Hollow growth = acquiring but disengaged · At risk = neither. Hover bubbles for details.
+
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 11, color: '#475569', marginTop: 4 }}>
+        <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#22c55e', borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }} />Joined</span>
+        <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }} />Left</span>
+        <span><span style={{ display: 'inline-block', width: 14, height: 2, background: '#0f172a', marginRight: 4, verticalAlign: 'middle', opacity: 0.7 }} />7-day avg net</span>
+      </div>
+
+      {/* Tooltip */}
+      {hovered && (
+        <div style={{
+          position: 'absolute',
+          top: 60,
+          right: 24,
+          background: '#0f172a',
+          color: 'white',
+          padding: '10px 12px',
+          borderRadius: 8,
+          fontSize: 11,
+          minWidth: 180,
+          boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+          pointerEvents: 'none',
+          zIndex: 5,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 6 }}>
+            {new Date(hovered.date + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'short' })}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 8px' }}>
+            <span style={{ color: '#86efac' }}>Joined</span>
+            <span style={{ fontWeight: 700, textAlign: 'right' }}>+{fmtNum(hovered.joined)}</span>
+            <span style={{ color: '#fca5a5' }}>Left</span>
+            <span style={{ fontWeight: 700, textAlign: 'right' }}>-{fmtNum(hovered.left)}</span>
+            <span style={{ color: '#cbd5e1', borderTop: '1px solid #334155', paddingTop: 3 }}>Net</span>
+            <span style={{ fontWeight: 800, textAlign: 'right', borderTop: '1px solid #334155', paddingTop: 3,
+              color: (hovered.joined - hovered.left) >= 0 ? '#86efac' : '#fca5a5' }}>
+              {fmtSigned(hovered.joined - hovered.left)}
+            </span>
+          </div>
+          {hoveredTopChannels.length > 0 && (
+            <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid #334155' }}>
+              <div style={{ color: '#94a3b8', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 3 }}>
+                TOP CONTRIBUTORS
+              </div>
+              {hoveredTopChannels.map((c) => {
+                const net = c.joined - c.left;
+                return (
+                  <div key={c.channel} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: 10 }}>
+                    <span style={{ color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {subjects[c.channel] || c.channel}
+                    </span>
+                    <span style={{ color: net >= 0 ? '#86efac' : '#fca5a5', fontWeight: 700 }}>
+                      {fmtSigned(net)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, lineHeight: 1.5, textAlign: 'center' }}>
+        Hover bars for daily detail · Data: Telegram broadcast stats (followersGraph)
       </div>
     </div>
   );
