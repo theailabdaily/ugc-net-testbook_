@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import DateRangePicker, { PRESETS } from './date-range-picker';
+import SubjectMultiSelect, { applySubjectFilter } from './subject-multiselect';
 
 // ─────────────────────────── helpers ───────────────────────────
 const SUBJECTS = {
@@ -137,7 +138,7 @@ export default function ChannelsSection() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
   const [search, setSearch]     = useState('');
-  const [filterSubj, setFilterSubj] = useState('All');
+  const [filterSubjects, setFilterSubjects] = useState([]);
   const [sortBy, setSortBy]     = useState('subscribers');
   const [sortDir, setSortDir]   = useState('desc');
   const [expanded, setExpanded] = useState(null);
@@ -189,24 +190,23 @@ export default function ChannelsSection() {
 
   const channels = data?.channels || [];
 
-  // Subject filter options
+  // Subject options derived from current data
   const subjects = useMemo(() => {
-    const all = new Set(['All']);
-    channels.forEach((c) => all.add(SUBJECTS[c.username] || c.username));
-    return Array.from(all);
+    const set = new Set();
+    channels.forEach((c) => set.add(SUBJECTS[c.username] || c.username));
+    return Array.from(set).sort();
   }, [channels]);
 
   // Apply search + subject filter + sort
   const filtered = useMemo(() => {
-    let rows = channels.filter((c) => {
-      const subj = SUBJECTS[c.username] || c.username;
-      if (filterSubj !== 'All' && subj !== filterSubj) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (!c.username.toLowerCase().includes(q) && !subj.toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
+    let rows = applySubjectFilter(channels, filterSubjects, SUBJECTS);
+    if (search) {
+      const q = search.toLowerCase();
+      rows = rows.filter((c) => {
+        const subj = SUBJECTS[c.username] || c.username;
+        return c.username.toLowerCase().includes(q) || subj.toLowerCase().includes(q);
+      });
+    }
 
     const col = COLS.find((c) => c.key === sortBy);
     if (col) {
@@ -223,7 +223,7 @@ export default function ChannelsSection() {
       });
     }
     return rows;
-  }, [channels, search, filterSubj, sortBy, sortDir]);
+  }, [channels, search, filterSubjects, sortBy, sortDir]);
 
   // Min/max for heatmap
   const ranges = useMemo(() => {
@@ -292,13 +292,12 @@ export default function ChannelsSection() {
             placeholder="Search channels…"
             style={{ padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, outline: 'none', width: 180 }}
           />
-          <select
-            value={filterSubj}
-            onChange={(e) => setFilterSubj(e.target.value)}
-            style={{ padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, cursor: 'pointer', background: 'white', minWidth: 90 }}
-          >
-            {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <SubjectMultiSelect
+            options={subjects}
+            value={filterSubjects}
+            onChange={setFilterSubjects}
+            label="Subjects"
+          />
           <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
             {loading ? 'Loading…' : `${filtered.length} channels`}
           </div>
