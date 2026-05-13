@@ -418,8 +418,8 @@ function DailyGrowthChart({ dailyByChannel, channels, subjects }) {
   // Y-axis tick values
   const yTicks = [niceMax, niceMax / 2, 0, -niceMax / 2, -niceMax];
 
-  // Format date for x-axis (show every Nth day to avoid crowding)
-  const xLabelStride = Math.max(1, Math.ceil(days.length / 8));
+  // Pick ~5-6 evenly-spaced label indices (no force-last that collides with stride)
+  const xLabelStride = Math.max(1, Math.floor((days.length - 1) / 5));
   const formatDay = (dateStr) => {
     const [y, m, d] = dateStr.split('-');
     const month = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m,10) - 1];
@@ -502,7 +502,7 @@ function DailyGrowthChart({ dailyByChannel, channels, subjects }) {
 
         {/* X labels */}
         {days.map((d, i) => {
-          if (i % xLabelStride !== 0 && i !== days.length - 1) return null;
+          if (i % xLabelStride !== 0) return null;
           return (
             <text key={d.date} x={xScale(i)} y={H - PAD_B + 14}
               textAnchor="middle" fontSize="10" fill="#64748b">
