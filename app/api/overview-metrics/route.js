@@ -124,7 +124,7 @@ export async function GET(request) {
   const prior = computePriorRange(from, to);
 
   try {
-    const [currentChannels, priorChannels, topPostsRes] = await Promise.all([
+    const [currentChannels, priorChannels, topPostsRes, dailyRowsRes] = await Promise.all([
       fetchPeriodChannels(from, to),
       prior ? fetchPeriodChannels(prior.from, prior.to) : Promise.resolve(null),
       sb.from('tg_posts')
@@ -135,9 +135,16 @@ export async function GET(request) {
         .not('views', 'is', null)
         .order('views', { ascending: false, nullsFirst: false })
         .limit(20),
+      sb.from('tg_followers_daily')
+        .select('chat_username, date, joined, left_count')
+        .gte('date', from.slice(0, 10))
+        .lte('date', to.slice(0, 10))
+        .order('date', { ascending: true }),
     ]);
 
-    if (topPostsRes.error) throw new Error('top_posts: ' + topPostsRes.error.message);
+    if (topPostsRes.error)  throw new Error('top_posts: ' + topPostsRes.error.message);
+    if (dailyRowsRes.error) throw new Error('daily: ' + dailyRowsRes.error.message);
+    const dailyRows = dailyRowsRes.data || [];
 
     return Response.json({
       ok: true,
@@ -152,6 +159,13 @@ export async function GET(request) {
         postedAt:     p.posted_at,
         preview:      p.preview ? p.preview.slice(0, 140) : null,
         url:          `https://t.me/${p.chat_username}/${p.message_id}`,
+      })),
+      // Raw daily-by-channel rows for the trend chart (client-side filterable)
+      dailyByChannel: dailyRows.map((r) => ({
+        date:     r.date,
+        channel:  r.chat_username.toLowerCase(),
+        joined:   r.joined || 0,
+        left:     r.left_count || 0,
       })),
     });
   } catch (e) {
