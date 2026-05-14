@@ -126,7 +126,7 @@ export async function GET(request) {
   const prior = computePriorRange(from, to);
 
   try {
-    const [currentChannels, priorChannels, topPostsRes, dailyRowsRes] = await Promise.all([
+    const [currentChannels, priorChannels, topPostsRes, dailyRowsRes, growthRowsRes] = await Promise.all([
       fetchPeriodChannels(from, to),
       prior ? fetchPeriodChannels(prior.from, prior.to) : Promise.resolve(null),
       sb.from('tg_posts')
@@ -143,11 +143,19 @@ export async function GET(request) {
         .lte('date', to.slice(0, 10))
         .order('date', { ascending: true })
         .limit(50000),
+      sb.from('tg_growth_daily')
+        .select('chat_username, date, total_subs')
+        .gte('date', from.slice(0, 10))
+        .lte('date', to.slice(0, 10))
+        .order('date', { ascending: true })
+        .limit(50000),
     ]);
 
-    if (topPostsRes.error)  throw new Error('top_posts: ' + topPostsRes.error.message);
-    if (dailyRowsRes.error) throw new Error('daily: ' + dailyRowsRes.error.message);
-    const dailyRows = dailyRowsRes.data || [];
+    if (topPostsRes.error)   throw new Error('top_posts: ' + topPostsRes.error.message);
+    if (dailyRowsRes.error)  throw new Error('daily: ' + dailyRowsRes.error.message);
+    if (growthRowsRes.error) throw new Error('growth: ' + growthRowsRes.error.message);
+    const dailyRows  = dailyRowsRes.data || [];
+    const growthRows = growthRowsRes.data || [];
 
     return Response.json({
       ok: true,
@@ -169,6 +177,12 @@ export async function GET(request) {
         channel:  r.chat_username.toLowerCase(),
         joined:   r.joined || 0,
         left:     r.left_count || 0,
+      })),
+      // Raw daily total-subs-by-channel rows for the cumulative subscribers chart
+      growthByChannel: growthRows.map((r) => ({
+        date:    r.date,
+        channel: r.chat_username.toLowerCase(),
+        total:   r.total_subs || 0,
       })),
     });
   } catch (e) {
