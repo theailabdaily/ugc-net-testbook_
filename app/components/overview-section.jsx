@@ -403,6 +403,252 @@ function HeroKPI({ label, value, delta, invert, tip }) {
 }
 
 
+// ─────────────────────────── Network Growth Chart (auto daily/monthly) ───────────────────────────
+function DailyGrowthChart({ dailyByChannel, channels, subjects }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+
+  const allowedSet = useMemo(() => new Set((channels || []).map((c) => c.username)), [channels]);
+
+  // Filter rows to allowed channels first
+  const filteredRows = useMemo(
+    () => (dailyByChannel || []).filter((r) => allowedSet.has(r.channel)),
+    [dailyByChannel, allowedSet]
+  );
+
+  // Determine bucket granularity from data span
+  const dateSet = useMemo(() => {
+    const s = new Set();
+    filteredRows.forEach((r) => s.add(r.date));
+    return Array.from(s).sort();
+  }, [filteredRows]);
+
+  // > 60 distinct days = bucket by month, else by day
+  const bucketBy = dateSet.length > 60 ? 'month' : 'day';
+
+  // Aggregate into buckets
+  const buckets = useMemo(() => {
+    const map = new Map();
+    for (const row of filteredRows) {
+      const key = bucketBy === 'month' ? row.date.slice(0, 7) : row.date;
+      let b = map.get(key);
+      if (!b) {
+        b = { key, dates: new Set(), joined: 0, left: 0, byChannel: new Map() };
+        map.set(key, b);
+      }
+      b.dates.add(row.date);
+      b.joined += row.joined || 0;
+      b.left   += row.left || 0;
+      const cs = b.byChannel.get(row.channel) || { joined: 0, left: 0 };
+      cs.joined += row.joined || 0;
+      cs.left   += row.left || 0;
+      b.byChannel.set(row.channel, cs);
+    }
+    return Array.from(map.values())
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .map((b) => ({
+        key: b.key,
+        days: b.dates.size,
+        joined: b.joined,
+        left: b.left,
+        byChannel: Array.from(b.byChannel.entries()).map(([ch, st]) => ({
+          channel: ch, joined: st.joined, left: st.left,
+        })),
+      }));
+  }, [filteredRows, bucketBy]);
+
+  const totalJoined = buckets.reduce((s, b) => s + b.joined, 0);
+  const totalLeft   = buckets.reduce((s, b) => s + b.left, 0);
+  const totalNet    = totalJoined - totalLeft;
+  const latestDate  = dateSet[dateSet.length - 1] || null;
+
+  // Moving avg (7 buckets)
+  const movingAvg = useMemo(() => {
+    return buckets.map((_, i) => {
+      const window = buckets.slice(Math.max(0, i - 6), i + 1);
+      const sum = window.reduce((s, b) => s + (b.joined - b.left), 0);
+      return sum / window.length;
+    });
+  }, [buckets]);
+
+  if (buckets.length === 0) {
+    return (
+      <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 18 }}>
+        <h3 style={{ margin: 0, fontSize: 14, color: '#0f172a' }}>📈 Network Growth</h3>
+        <div style={{ marginTop: 40, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>
+          No follower data in this range.
+        </div>
+      </div>
+    );
+  }
+
+  const W = 560, H = 320, PAD_L = 50, PAD_R = 16, PAD_T = 20, PAD_B = 40;
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
+
+  const maxJoined = Math.max(...buckets.map((b) => b.joined), 1);
+  const maxLeft   = Math.max(...buckets.map((b) => b.left), 1);
+  const yMax = Math.max(maxJoined, maxLeft);
+  const niceMax = Math.pow(10, Math.floor(Math.log10(yMax))) * Math.ceil(yMax / Math.pow(10, Math.floor(Math.log10(yMax))));
+
+  const yScale = (v) => PAD_T + chartH / 2 - (v / niceMax) * (chartH / 2);
+  const xScale = (i) => PAD_L + (chartW / buckets.length) * (i + 0.5);
+  const barW = Math.min(38, Math.max(3, (chartW / buckets.length) * 0.7));
+
+  const yTicks = [niceMax, niceMax / 2, 0, -niceMax / 2, -niceMax];
+
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const formatBucket = (key) => {
+    if (bucketBy === 'month') {
+      const [y, m] = key.split('-');
+      return `${MONTH_NAMES[parseInt(m,10) - 1]} ${y.slice(2)}`;
+    }
+    const [y, m, d] = key.split('-');
+    return `${MONTH_NAMES[parseInt(m,10) - 1]} ${parseInt(d, 10)}`;
+  };
+
+  const xLabelStride = Math.max(1, Math.floor((buckets.length - 1) / 5));
+
+  const hovered = hoverIdx !== null ? buckets[hoverIdx] : null;
+  const hoveredTopChannels = hovered ? [...hovered.byChannel]
+    .sort((a, b) => (b.joined - b.left) - (a.joined - a.left)).slice(0, 3) : [];
+
+  const maLinePoints = buckets.map((_, i) => `${xScale(i)},${yScale(movingAvg[i])}`).join(' ');
+
+  const bucketLabel = bucketBy === 'month' ? 'monthly' : 'daily';
+  const maLabel = bucketBy === 'month' ? '7-mo avg' : '7-day avg';
+
+  return (
+    <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 16, position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+          📈 Network Growth <span style={{ color: '#94a3b8', fontWeight: 500, fontSize: 11 }}>({bucketLabel})</span>
+        </h3>
+        <div style={{ fontSize: 11, color: '#64748b' }}>
+          <span style={{ color: '#15803d', fontWeight: 700 }}>+{fmtNum(totalJoined)} joined</span>
+          {' · '}
+          <span style={{ color: '#dc2626', fontWeight: 700 }}>-{fmtNum(totalLeft)} left</span>
+          {' · '}
+          <span style={{ color: totalNet >= 0 ? '#15803d' : '#dc2626', fontWeight: 800 }}>
+            net {fmtSigned(totalNet)}
+          </span>
+        </div>
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', overflow: 'visible' }}>
+        {yTicks.map((t) => (
+          <g key={t}>
+            <line x1={PAD_L} y1={yScale(t)} x2={W - PAD_R} y2={yScale(t)}
+              stroke={t === 0 ? '#cbd5e1' : '#f1f5f9'} strokeWidth="1" />
+            <text x={PAD_L - 6} y={yScale(t) + 3} textAnchor="end" fontSize="10" fill="#94a3b8">
+              {t > 0 ? '+' : ''}{fmtNum(t)}
+            </text>
+          </g>
+        ))}
+
+        {buckets.map((b, i) => {
+          const isHover = hoverIdx === i;
+          return (
+            <g key={b.key}
+               onMouseEnter={() => setHoverIdx(i)}
+               onMouseLeave={() => setHoverIdx(null)}
+               style={{ cursor: 'pointer' }}
+            >
+              <rect x={xScale(i) - (chartW / buckets.length) / 2} y={PAD_T}
+                width={chartW / buckets.length} height={chartH}
+                fill="transparent" />
+
+              <rect x={xScale(i) - barW / 2} y={yScale(b.joined)}
+                width={barW} height={yScale(0) - yScale(b.joined)}
+                fill={isHover ? '#15803d' : '#22c55e'} rx="1" />
+
+              <rect x={xScale(i) - barW / 2} y={yScale(0)}
+                width={barW} height={yScale(-b.left) - yScale(0)}
+                fill={isHover ? '#b91c1c' : '#ef4444'} rx="1" opacity="0.85" />
+            </g>
+          );
+        })}
+
+        <polyline points={maLinePoints} fill="none" stroke="#0f172a" strokeWidth="2" opacity="0.7" />
+
+        {buckets.map((b, i) => {
+          if (i % xLabelStride !== 0) return null;
+          return (
+            <text key={b.key} x={xScale(i)} y={H - PAD_B + 14}
+              textAnchor="middle" fontSize="10" fill="#64748b">
+              {formatBucket(b.key)}
+            </text>
+          );
+        })}
+
+        {hovered !== null && (
+          <line x1={xScale(hoverIdx)} y1={PAD_T} x2={xScale(hoverIdx)} y2={H - PAD_B}
+            stroke="#0f172a" strokeWidth="1" strokeDasharray="2,3" opacity="0.3" pointerEvents="none" />
+        )}
+      </svg>
+
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', fontSize: 11, color: '#475569', marginTop: 4 }}>
+        <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#22c55e', borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }} />Joined</span>
+        <span><span style={{ display: 'inline-block', width: 10, height: 10, background: '#ef4444', borderRadius: 2, marginRight: 4, verticalAlign: 'middle' }} />Left</span>
+        <span><span style={{ display: 'inline-block', width: 14, height: 2, background: '#0f172a', marginRight: 4, verticalAlign: 'middle', opacity: 0.7 }} />{maLabel} net</span>
+      </div>
+
+      {hovered && (
+        <div style={{
+          position: 'absolute', top: 60, right: 24,
+          background: '#0f172a', color: 'white',
+          padding: '10px 12px', borderRadius: 8, fontSize: 11, minWidth: 200,
+          boxShadow: '0 4px 14px rgba(0,0,0,0.18)', pointerEvents: 'none', zIndex: 5,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 6 }}>
+            {bucketBy === 'month'
+              ? (() => {
+                  const [y, m] = hovered.key.split('-');
+                  return `${MONTH_NAMES[parseInt(m,10) - 1]} ${y} · ${hovered.days} days`;
+                })()
+              : new Date(hovered.key + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'short' })
+            }
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 8px' }}>
+            <span style={{ color: '#86efac' }}>Joined</span>
+            <span style={{ fontWeight: 700, textAlign: 'right' }}>+{fmtNum(hovered.joined)}</span>
+            <span style={{ color: '#fca5a5' }}>Left</span>
+            <span style={{ fontWeight: 700, textAlign: 'right' }}>-{fmtNum(hovered.left)}</span>
+            <span style={{ color: '#cbd5e1', borderTop: '1px solid #334155', paddingTop: 3 }}>Net</span>
+            <span style={{ fontWeight: 800, textAlign: 'right', borderTop: '1px solid #334155', paddingTop: 3,
+              color: (hovered.joined - hovered.left) >= 0 ? '#86efac' : '#fca5a5' }}>
+              {fmtSigned(hovered.joined - hovered.left)}
+            </span>
+          </div>
+          {hoveredTopChannels.length > 0 && (
+            <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid #334155' }}>
+              <div style={{ color: '#94a3b8', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 3 }}>
+                TOP CONTRIBUTORS
+              </div>
+              {hoveredTopChannels.map((c) => {
+                const net = c.joined - c.left;
+                return (
+                  <div key={c.channel} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: 10 }}>
+                    <span style={{ color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {subjects[c.channel] || c.channel}
+                    </span>
+                    <span style={{ color: net >= 0 ? '#86efac' : '#fca5a5', fontWeight: 700 }}>
+                      {fmtSigned(net)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, lineHeight: 1.5, textAlign: 'center' }}>
+        Hover bars for {bucketBy === 'month' ? 'monthly' : 'daily'} detail · Latest data: {latestDate || 'n/a'} <span style={{ color: '#cbd5e1' }}>(Telegram&apos;s follower data lags 1 day)</span>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────── Top Movers Panel ───────────────────────────
 function TopMoversPanel({ topGainers, topLosers, topPosts, subjects }) {
   return (
