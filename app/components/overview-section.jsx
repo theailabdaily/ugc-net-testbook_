@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import DateRangePicker, { PRESETS } from './date-range-picker';
 import SubjectMultiSelect, { applySubjectFilter } from './subject-multiselect';
+import { fetchWithRetry } from '../lib/fetch-with-retry';
 
 // ─────────────────────────── mappings ───────────────────────────
 const SUBJECTS = {
@@ -95,11 +96,22 @@ export default function OverviewSection() {
   const [briefingLoading, setBriefingLoading] = useState(false);
   const [briefingError, setBriefingError] = useState(null);
 
+  const [retryStatus, setRetryStatus] = useState(null);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/overview-metrics?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`)
+    setRetryStatus(null);
+    fetchWithRetry(
+      `/api/overview-metrics?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`,
+      {},
+      {
+        onRetry: ({ attempt, status }) => {
+          if (!cancelled) setRetryStatus(`Server warming up (attempt ${attempt + 1})…`);
+        },
+      },
+    )
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
@@ -107,7 +119,7 @@ export default function OverviewSection() {
         else { setData(d); setError(null); }
       })
       .catch((e) => { if (!cancelled) setError(e.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => { if (!cancelled) { setLoading(false); setRetryStatus(null); } });
     return () => { cancelled = true; };
   }, [range.from, range.to]);
 
@@ -159,7 +171,7 @@ export default function OverviewSection() {
     try {
       const subjectsLabel = filterSubjects.length === 0 || filterSubjects.length === allSubjects.length
         ? 'All subjects' : filterSubjects.join(', ');
-      const res = await fetch('/api/portfolio-insights', {
+      const res = await fetchWithRetry('/api/portfolio-insights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -195,8 +207,8 @@ export default function OverviewSection() {
             onChange={setFilterSubjects}
             label="Subjects"
           />
-          <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
-            {loading ? 'Loading…' : `${currChannels.length} channels`}
+          <div style={{ fontSize: 12, color: retryStatus ? '#b45309' : '#64748b', whiteSpace: 'nowrap' }}>
+            {retryStatus || (loading ? 'Loading…' : `${currChannels.length} channels`)}
           </div>
         </div>
       </div>
