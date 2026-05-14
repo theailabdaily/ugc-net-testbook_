@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import SubjectMultiSelect, { applySubjectFilter } from './subject-multiselect';
 import { fetchWithRetry } from '../lib/fetch-with-retry';
 
 // ─────────────────────────── mappings ───────────────────────────
@@ -102,7 +101,11 @@ export default function ContentCalendarSection({ channels = [] }) {
   // ─── State ───
   const [view, setView]            = useState('week');      // 'day' | 'week' | 'month'
   const [cursor, setCursor]        = useState(() => new Date()); // any date in the visible range
-  const [filterSubjects, setFilterSubjects] = useState([]);
+  // Selected channels — pulls double-duty:
+  //  (a) filter calendar view to only show these channels' posts
+  //  (b) pre-select channel(s) when clicking a slot — if 1 checked, modal pre-fills it;
+  //      if 2+ checked, creates one post per channel at that time
+  const [checkedChannels, setCheckedChannels] = useState(() => new Set());
   const [posts, setPosts]          = useState([]);
   const [loading, setLoading]      = useState(true);
   const [error, setError]          = useState(null);
@@ -137,13 +140,11 @@ export default function ContentCalendarSection({ channels = [] }) {
   };
   useEffect(() => { refresh(); /* eslint-disable-next-line */ }, [rangeFrom.toISOString(), rangeTo.toISOString()]);
 
-  // ─── Subject filter ───
-  const allSubjects = useMemo(() => Array.from(new Set(Object.values(SUBJECTS))).sort(), []);
+  // ─── Filter ───
   const filteredPosts = useMemo(() => {
-    if (filterSubjects.length === 0) return posts;
-    if (filterSubjects.includes('__none__')) return [];
-    return posts.filter((p) => filterSubjects.includes(SUBJECTS[p.chat_username] || p.chat_username));
-  }, [posts, filterSubjects]);
+    if (checkedChannels.size === 0) return posts;  // no filter = show all
+    return posts.filter((p) => checkedChannels.has(p.chat_username));
+  }, [posts, checkedChannels]);
 
   // ─── Navigation ───
   const goToday = () => setCursor(new Date());
@@ -242,6 +243,32 @@ export default function ContentCalendarSection({ channels = [] }) {
   // ─── Save handlers ───
   async function savePost(post) {
     const isNew = !post.id;
+    // Multi-channel: create one DB row per channel, then refresh
+    if (isNew && post.isMulti && Array.isArray(post.multiChannels) && post.multiChannels.length > 1) {
+      const results = await Promise.allSettled(post.multiChannels.map((ch) =>
+        fetch('/api/scheduled-posts', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_username:    ch,
+            scheduled_at:     post.scheduled_at,
+            post_type:        post.post_type,
+            content:          post.content,
+            quiz_question:    post.quiz_question || null,
+            quiz_options:     post.quiz_options || null,
+            quiz_correct_idx: post.quiz_correct_idx ?? null,
+            quiz_explanation: post.quiz_explanation || null,
+            should_pin:       !!post.should_pin,
+            source:           'manual',
+          }),
+        }).then((r) => r.json()),
+      ));
+      const failed = results.filter((r) => r.status === 'rejected' || !r.value?.ok);
+      setEditPost(null);
+      await refresh();
+      if (failed.length) alert(`Created ${results.length - failed.length}/${results.length}. ${failed.length} failed.`);
+      return;
+    }
+    // Single channel: existing path
     const url   = isNew ? '/api/scheduled-posts' : `/api/scheduled-posts/${post.id}`;
     const method = isNew ? 'POST' : 'PATCH';
     const body = {
@@ -293,11 +320,44 @@ export default function ContentCalendarSection({ channels = [] }) {
     await refresh();
   }
 
-  // ─── Click empty slot → open new-post modal ───
-  function newPostAt(date) {
+  // ─── Click empty slot → open new-post modal (or create N posts if N channels checked) ───
+  async function newPostAt(date) {
+    const checked = Array.from(checkedChannels);
+
+    // 0 checked: fall back to existing flow (modal asks for channel)
+    if (checked.length === 0) {
+      setEditPost({
+        isNew: true,
+        chat_username: channels[0]?.username || '',
+        scheduled_at: date.toISOString(),
+        post_type: 'Message',
+        content: '',
+        should_pin: false,
+        source: 'manual',
+      });
+      return;
+    }
+
+    // 1 checked: open modal with that channel pre-filled
+    if (checked.length === 1) {
+      setEditPost({
+        isNew: true,
+        chat_username: checked[0],
+        scheduled_at: date.toISOString(),
+        post_type: 'Message',
+        content: '',
+        should_pin: false,
+        source: 'manual',
+      });
+      return;
+    }
+
+    // 2+ checked: open modal in multi-channel mode (single content, posts to N channels at once)
     setEditPost({
       isNew: true,
-      chat_username: aiChannel || channels[0]?.username || '',
+      isMulti: true,
+      multiChannels: checked,
+      chat_username: checked[0],   // for display/preview only
       scheduled_at: date.toISOString(),
       post_type: 'Message',
       content: '',
@@ -321,11 +381,10 @@ export default function ContentCalendarSection({ channels = [] }) {
         view={view} setView={setView}
         headerLabel={headerLabel}
         onPrev={goPrev} onNext={goNext} onToday={goToday}
-        filterSubjects={filterSubjects} setFilterSubjects={setFilterSubjects}
-        allSubjects={allSubjects}
         onNewPost={() => newPostAt(new Date())}
         onRefresh={refresh}
         loading={loading}
+        checkedCount={checkedChannels.size}
       />
 
       {error && (
@@ -334,10 +393,13 @@ export default function ContentCalendarSection({ channels = [] }) {
         </div>
       )}
 
-      <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-        {view === 'month' && <MonthView cursor={cursor} posts={filteredPosts} onEventClick={setEditPost} onSlotClick={newPostAt} />}
-        {view === 'week'  && <WeekView  cursor={cursor} posts={filteredPosts} onEventClick={setEditPost} onSlotClick={newPostAt} />}
-        {view === 'day'   && <DayView   cursor={cursor} posts={filteredPosts} onEventClick={setEditPost} onSlotClick={newPostAt} />}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 240px', gap: 12 }}>
+        <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', minWidth: 0 }}>
+          {view === 'month' && <MonthView cursor={cursor} posts={filteredPosts} onEventClick={setEditPost} onSlotClick={newPostAt} />}
+          {view === 'week'  && <WeekView  cursor={cursor} posts={filteredPosts} onEventClick={setEditPost} onSlotClick={newPostAt} />}
+          {view === 'day'   && <DayView   cursor={cursor} posts={filteredPosts} onEventClick={setEditPost} onSlotClick={newPostAt} />}
+        </div>
+        <ChannelSidebar channels={channels} checked={checkedChannels} setChecked={setCheckedChannels} />
       </div>
 
       {editPost && (
@@ -420,7 +482,7 @@ function AiGenerator({ channels, aiChannel, setAiChannel, aiDate, setAiDate, loa
 }
 
 // ─────────────────────────── Toolbar ───────────────────────────
-function CalendarToolbar({ view, setView, headerLabel, onPrev, onNext, onToday, filterSubjects, setFilterSubjects, allSubjects, onNewPost, onRefresh, loading }) {
+function CalendarToolbar({ view, setView, headerLabel, onPrev, onNext, onToday, onNewPost, onRefresh, loading, checkedCount }) {
   const btn = (active) => ({
     padding: '6px 12px', borderRadius: 6, border: 'none',
     background: active ? '#0f172a' : 'transparent', color: active ? 'white' : '#475569',
@@ -444,19 +506,118 @@ function CalendarToolbar({ view, setView, headerLabel, onPrev, onNext, onToday, 
         <button onClick={() => setView('month')} style={btn(view === 'month')}>Month</button>
       </div>
 
+      {checkedCount > 0 && (
+        <span style={{ background: '#dbeafe', color: '#1e40af', padding: '4px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+          📋 {checkedCount} channel{checkedCount > 1 ? 's' : ''} selected
+        </span>
+      )}
+
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-        <SubjectMultiSelect
-          options={allSubjects}
-          value={filterSubjects}
-          onChange={setFilterSubjects}
-          label="Subjects"
-        />
         <button onClick={onRefresh} disabled={loading} style={{ padding: '6px 10px', border: '1px solid #cbd5e1', background: 'white', borderRadius: 6, fontSize: 13, cursor: loading ? 'wait' : 'pointer', color: '#475569' }}>
           {loading ? '⟳' : '↻'}
         </button>
         <button onClick={onNewPost} style={{ padding: '7px 14px', border: 'none', background: '#0f172a', color: 'white', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
           + New post
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────── Channel sidebar (right side) ───────────────────────────
+function ChannelSidebar({ channels, checked, setChecked }) {
+  const [search, setSearch] = useState('');
+  const sortedChannels = useMemo(() => {
+    return [...channels].sort((a, b) => {
+      const sa = SUBJECTS[a.username] || a.username;
+      const sb = SUBJECTS[b.username] || b.username;
+      return sa.localeCompare(sb);
+    });
+  }, [channels]);
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    if (!q) return sortedChannels;
+    return sortedChannels.filter((c) => {
+      const subj = (SUBJECTS[c.username] || c.username).toLowerCase();
+      return subj.includes(q) || c.username.toLowerCase().includes(q);
+    });
+  }, [sortedChannels, search]);
+
+  const toggle = (username) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) next.delete(username); else next.add(username);
+      return next;
+    });
+  };
+  const selectAll = () => setChecked(new Set(sortedChannels.map((c) => c.username)));
+  const clearAll  = () => setChecked(new Set());
+
+  return (
+    <div style={{
+      background: 'white', border: '1px solid #e2e8f0', borderRadius: 10,
+      overflow: 'hidden', display: 'flex', flexDirection: 'column',
+      maxHeight: 'calc(100vh - 280px)', minHeight: 400,
+    }}>
+      <div style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+        <div style={{ fontSize: 11, color: '#475569', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 6 }}>
+          Channels
+        </div>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search…"
+          style={{ width: '100%', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 5, fontSize: 12, boxSizing: 'border-box' }}
+        />
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          <button onClick={selectAll} style={{ flex: 1, padding: '4px 6px', border: '1px solid #cbd5e1', background: 'white', borderRadius: 4, fontSize: 10, fontWeight: 600, color: '#475569', cursor: 'pointer' }}>Select all</button>
+          <button onClick={clearAll}  style={{ flex: 1, padding: '4px 6px', border: '1px solid #cbd5e1', background: 'white', borderRadius: 4, fontSize: 10, fontWeight: 600, color: '#475569', cursor: 'pointer' }}>Clear</button>
+        </div>
+      </div>
+
+      <div style={{ overflowY: 'auto', flex: 1 }}>
+        {filtered.map((c) => {
+          const isChecked = checked.has(c.username);
+          const subj = SUBJECTS[c.username] || c.username;
+          return (
+            <label
+              key={c.username}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '7px 12px', cursor: 'pointer',
+                borderBottom: '1px solid #f1f5f9',
+                background: isChecked ? '#f0f9ff' : 'white',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => toggle(c.username)}
+                style={{ accentColor: '#3b82f6', cursor: 'pointer' }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {subj}
+                </div>
+                <div style={{ fontSize: 10, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  @{c.username}
+                </div>
+              </div>
+            </label>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div style={{ padding: 14, fontSize: 12, color: '#94a3b8', textAlign: 'center' }}>
+            No channels match "{search}"
+          </div>
+        )}
+      </div>
+
+      <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 10, color: '#64748b', lineHeight: 1.5 }}>
+        Check 1 → pre-selects on new post.<br/>
+        Check 2+ → broadcasts to all checked.<br/>
+        Also filters events shown.
       </div>
     </div>
   );
@@ -534,7 +695,7 @@ function WeekView({ cursor, posts, onEventClick, onSlotClick }) {
   const weekStart = startOfWeekIst(cursor);
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
-  const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 6 AM to 11 PM
+  const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0 AM (midnight) to 11 PM
 
   // Index posts: dayKey → hour → posts
   const grid = useMemo(() => {
@@ -587,11 +748,19 @@ function WeekView({ cursor, posts, onEventClick, onSlotClick }) {
             </div>
             {days.map((d, i) => {
               const cellPosts = (grid.get(istKey(d))?.get(h)) || [];
-              const cellTime = new Date(`${istKey(d)}T${String(h).padStart(2, '0')}:00:00+05:30`);
               return (
                 <div
                   key={i}
-                  onClick={(e) => { if (e.target === e.currentTarget) onSlotClick(cellTime); }}
+                  onClick={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const yFrac = Math.max(0, Math.min(0.999, (e.clientY - rect.top) / rect.height));
+                    const minute = Math.round((yFrac * 60) / 15) * 15;
+                    const finalMinute = minute === 60 ? 0 : minute;
+                    const finalHour = minute === 60 ? (h + 1) % 24 : h;
+                    const slotTime = new Date(`${istKey(d)}T${String(finalHour).padStart(2, '0')}:${String(finalMinute).padStart(2, '0')}:00+05:30`);
+                    onSlotClick(slotTime);
+                  }}
                   style={{
                     borderRight: (i === 6 ? 'none' : '1px solid #f1f5f9'),
                     borderBottom: '1px solid #f1f5f9',
@@ -616,7 +785,7 @@ function WeekView({ cursor, posts, onEventClick, onSlotClick }) {
 // ─────────────────────────── Day View ───────────────────────────
 function DayView({ cursor, posts, onEventClick, onSlotClick }) {
   const dayPosts = useMemo(() => posts.filter((p) => isSameDayIst(new Date(p.scheduled_at), cursor)).sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at)), [posts, cursor]);
-  const HOURS = Array.from({ length: 18 }, (_, i) => i + 6);
+  const HOURS = Array.from({ length: 24 }, (_, i) => i);
   const today = new Date();
 
   const postsByHour = useMemo(() => {
@@ -639,14 +808,22 @@ function DayView({ cursor, posts, onEventClick, onSlotClick }) {
       <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr' }}>
         {HOURS.map((h) => {
           const hp = postsByHour.get(h) || [];
-          const slotTime = new Date(`${istKey(cursor)}T${String(h).padStart(2, '0')}:00:00+05:30`);
           return (
             <Fragment key={h}>
               <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8', textAlign: 'right', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', minHeight: 64 }}>
                 {(h % 12 === 0 ? 12 : h % 12)} {h < 12 ? 'AM' : 'PM'}
               </div>
               <div
-                onClick={(e) => { if (e.target === e.currentTarget) onSlotClick(slotTime); }}
+                onClick={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const yFrac = Math.max(0, Math.min(0.999, (e.clientY - rect.top) / rect.height));
+                  const minute = Math.round((yFrac * 60) / 15) * 15;
+                  const finalMinute = minute === 60 ? 0 : minute;
+                  const finalHour = minute === 60 ? (h + 1) % 24 : h;
+                  const slotTime = new Date(`${istKey(cursor)}T${String(finalHour).padStart(2, '0')}:${String(finalMinute).padStart(2, '0')}:00+05:30`);
+                  onSlotClick(slotTime);
+                }}
                 style={{ borderBottom: '1px solid #f1f5f9', minHeight: 64, padding: 6, display: 'flex', flexDirection: 'column', gap: 4, cursor: 'pointer' }}
               >
                 {hp.map((p) => <EventChip key={p.id} post={p} expanded onClick={() => onEventClick(p)} />)}
@@ -719,6 +896,7 @@ function PostModal({ post, channels, onSave, onClose, onDelete, onPostNow, onPin
   const [draft, setDraft] = useState(() => ({ ...post }));
   const isNew = !!post.isNew;
   const isPosted = draft.status === 'posted';
+  const isMulti  = !!draft.isMulti && Array.isArray(draft.multiChannels) && draft.multiChannels.length > 1;
 
   const updateField = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
 
@@ -746,27 +924,42 @@ function PostModal({ post, channels, onSave, onClose, onDelete, onPostNow, onPin
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #e2e8f0' }}>
           <strong style={{ fontSize: 16, color: '#0f172a' }}>
-            {isNew ? '➕ New scheduled post' : (isPosted ? '✓ Posted message' : '✏️ Edit scheduled post')}
+            {isMulti ? `📢 Broadcast to ${draft.multiChannels.length} channels` : (isNew ? '➕ New scheduled post' : (isPosted ? '✓ Posted message' : '✏️ Edit scheduled post'))}
           </strong>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: 20, color: '#94a3b8', cursor: 'pointer' }}>×</button>
         </div>
 
         <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Field label="Channel">
-            <select
-              value={draft.chat_username || ''}
-              onChange={(e) => updateField('chat_username', e.target.value)}
-              disabled={isPosted}
-              style={{ width: '100%', padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: 'white' }}
-            >
-              <option value="">Select channel…</option>
-              {channels.map((c) => (
-                <option key={c.username} value={c.username}>
-                  {SUBJECTS[c.username] || c.username} · @{c.username}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {isMulti ? (
+            <Field label={`Channels (${draft.multiChannels.length})`}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#f8fafc', maxHeight: 90, overflowY: 'auto' }}>
+                {draft.multiChannels.map((ch) => (
+                  <span key={ch} style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
+                    {SUBJECTS[ch] || ch}
+                  </span>
+                ))}
+              </div>
+              <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                Same content will be scheduled separately for each channel. You can edit each one individually after creation.
+              </div>
+            </Field>
+          ) : (
+            <Field label="Channel">
+              <select
+                value={draft.chat_username || ''}
+                onChange={(e) => updateField('chat_username', e.target.value)}
+                disabled={isPosted}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: 'white' }}
+              >
+                <option value="">Select channel…</option>
+                {channels.map((c) => (
+                  <option key={c.username} value={c.username}>
+                    {SUBJECTS[c.username] || c.username} · @{c.username}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <Field label="Scheduled for (IST)">
