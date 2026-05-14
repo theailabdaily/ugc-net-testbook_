@@ -244,6 +244,15 @@ export default function OverviewSection() {
         />
       </div>
 
+      {/* Total Subscribers Chart (full width) */}
+      <div style={{ marginBottom: 14 }}>
+        <SubscribersChart
+          growthByChannel={data?.growthByChannel || []}
+          channels={currChannels}
+          subjects={SUBJECTS}
+        />
+      </div>
+
       {/* Recommended Actions */}
       <RecommendedActions briefing={briefing} />
     </div>
@@ -644,6 +653,206 @@ function DailyGrowthChart({ dailyByChannel, channels, subjects }) {
 
       <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, lineHeight: 1.5, textAlign: 'center' }}>
         Hover bars for {bucketBy === 'month' ? 'monthly' : 'daily'} detail · Latest data: {latestDate || 'n/a'} <span style={{ color: '#cbd5e1' }}>(Telegram&apos;s follower data lags 1 day)</span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────── Subscribers Chart (total subs over time, line/area) ───────────────────────────
+function SubscribersChart({ growthByChannel, channels, subjects }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
+
+  const allowedSet = useMemo(() => new Set((channels || []).map((c) => c.username)), [channels]);
+
+  // Filter rows by selected subjects
+  const filteredRows = useMemo(
+    () => (growthByChannel || []).filter((r) => allowedSet.has(r.channel)),
+    [growthByChannel, allowedSet]
+  );
+
+  // Aggregate: sum total_subs across allowed channels per date
+  const dailySeries = useMemo(() => {
+    const map = new Map(); // date → { total, channelSubs: {channel:total} }
+    for (const row of filteredRows) {
+      let b = map.get(row.date);
+      if (!b) { b = { date: row.date, total: 0, channelSubs: {} }; map.set(row.date, b); }
+      b.total += row.total || 0;
+      b.channelSubs[row.channel] = row.total || 0;
+    }
+    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [filteredRows]);
+
+  if (dailySeries.length === 0) {
+    return (
+      <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 18 }}>
+        <h3 style={{ margin: 0, fontSize: 14, color: '#0f172a' }}>👥 Total Subscribers</h3>
+        <div style={{ marginTop: 40, color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>
+          No subscriber data in this range.
+        </div>
+      </div>
+    );
+  }
+
+  const startSubs = dailySeries[0].total;
+  const endSubs   = dailySeries[dailySeries.length - 1].total;
+  const netChange = endSubs - startSubs;
+  const pctChange = startSubs > 0 ? (netChange / startSubs) * 100 : 0;
+
+  const W = 1100, H = 280, PAD_L = 56, PAD_R = 16, PAD_T = 20, PAD_B = 36;
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
+
+  // Y-scale: don't start at 0 — start at floor(min * 0.95) so the line has visible slope
+  const allTotals = dailySeries.map((d) => d.total);
+  const dataMin = Math.min(...allTotals);
+  const dataMax = Math.max(...allTotals);
+  // Pad min/max so line doesn't touch edges
+  const yPad = Math.max(1, (dataMax - dataMin) * 0.1);
+  const yMin = Math.max(0, Math.floor((dataMin - yPad) / 100) * 100);
+  const yMax = Math.ceil((dataMax + yPad) / 100) * 100;
+
+  const xScale = (i) => PAD_L + (chartW / Math.max(1, dailySeries.length - 1)) * i;
+  const yScale = (v) => PAD_T + chartH - ((v - yMin) / (yMax - yMin)) * chartH;
+
+  // Build polyline + area path
+  const linePoints = dailySeries.map((d, i) => `${xScale(i)},${yScale(d.total)}`).join(' ');
+  const areaPath = `M ${PAD_L},${yScale(yMin)} ` +
+                   dailySeries.map((d, i) => `L ${xScale(i)},${yScale(d.total)}`).join(' ') +
+                   ` L ${xScale(dailySeries.length - 1)},${yScale(yMin)} Z`;
+
+  // Y ticks: 4 evenly-spaced values between yMin and yMax
+  const yTicks = [yMin, yMin + (yMax - yMin) * 0.33, yMin + (yMax - yMin) * 0.67, yMax].map((v) => Math.round(v));
+
+  // X labels: ~6 evenly spaced
+  const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const formatDate = (dateStr) => {
+    const [y, m, d] = dateStr.split('-');
+    return `${MONTH_NAMES[parseInt(m,10) - 1]} ${parseInt(d, 10)}`;
+  };
+  const xLabelStride = Math.max(1, Math.floor((dailySeries.length - 1) / 6));
+
+  const hovered = hoverIdx !== null ? dailySeries[hoverIdx] : null;
+  const hoveredTopChannels = hovered
+    ? Object.entries(hovered.channelSubs)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+    : [];
+
+  // Format hovered subscribers diff vs start
+  const hoveredDelta = hovered ? hovered.total - startSubs : 0;
+
+  // Find SVG x position from mouse
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    if (svgX < PAD_L || svgX > W - PAD_R) { setHoverIdx(null); return; }
+    const idx = Math.round(((svgX - PAD_L) / chartW) * (dailySeries.length - 1));
+    if (idx >= 0 && idx < dailySeries.length) setHoverIdx(idx);
+  };
+
+  return (
+    <div style={{ background: 'white', borderRadius: 10, border: '1px solid #e2e8f0', padding: 16, position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+          👥 Total Subscribers <span style={{ color: '#94a3b8', fontWeight: 500, fontSize: 11 }}>(cumulative)</span>
+        </h3>
+        <div style={{ fontSize: 11, color: '#64748b' }}>
+          <span style={{ fontWeight: 700, color: '#0f172a' }}>{fmtNum(startSubs)}</span>
+          {' → '}
+          <span style={{ fontWeight: 700, color: '#0f172a' }}>{fmtNum(endSubs)}</span>
+          {' · '}
+          <span style={{ fontWeight: 800, color: netChange >= 0 ? '#15803d' : '#dc2626' }}>
+            {fmtSigned(netChange)} ({pctChange >= 0 ? '+' : ''}{pctChange.toFixed(1)}%)
+          </span>
+        </div>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        style={{ display: 'block', overflow: 'visible' }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        {/* Y gridlines + labels */}
+        {yTicks.map((t) => (
+          <g key={t}>
+            <line x1={PAD_L} y1={yScale(t)} x2={W - PAD_R} y2={yScale(t)} stroke="#f1f5f9" strokeWidth="1" />
+            <text x={PAD_L - 8} y={yScale(t) + 3} textAnchor="end" fontSize="10" fill="#94a3b8">
+              {fmtNum(t)}
+            </text>
+          </g>
+        ))}
+
+        {/* Area fill */}
+        <path d={areaPath} fill="#3b82f6" fillOpacity="0.12" />
+
+        {/* Line */}
+        <polyline points={linePoints} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinejoin="round" />
+
+        {/* X labels */}
+        {dailySeries.map((d, i) => {
+          if (i % xLabelStride !== 0) return null;
+          return (
+            <text key={d.date} x={xScale(i)} y={H - PAD_B + 14} textAnchor="middle" fontSize="10" fill="#64748b">
+              {formatDate(d.date)}
+            </text>
+          );
+        })}
+
+        {/* Hover indicator: vertical line + dot */}
+        {hovered !== null && (
+          <>
+            <line x1={xScale(hoverIdx)} y1={PAD_T} x2={xScale(hoverIdx)} y2={H - PAD_B}
+              stroke="#0f172a" strokeWidth="1" strokeDasharray="3,3" opacity="0.4" pointerEvents="none" />
+            <circle cx={xScale(hoverIdx)} cy={yScale(hovered.total)} r="5"
+              fill="#3b82f6" stroke="white" strokeWidth="2" pointerEvents="none" />
+          </>
+        )}
+      </svg>
+
+      <div style={{ display: 'flex', justifyContent: 'center', fontSize: 11, color: '#475569', marginTop: 4 }}>
+        <span><span style={{ display: 'inline-block', width: 14, height: 2, background: '#3b82f6', marginRight: 4, verticalAlign: 'middle' }} />Cumulative subscribers (sum across selected channels)</span>
+      </div>
+
+      {hovered && (
+        <div style={{
+          position: 'absolute', top: 60, right: 24,
+          background: '#0f172a', color: 'white',
+          padding: '10px 12px', borderRadius: 8, fontSize: 11, minWidth: 240,
+          boxShadow: '0 4px 14px rgba(0,0,0,0.18)', pointerEvents: 'none', zIndex: 5,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 6 }}>
+            {new Date(hovered.date + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', weekday: 'short' })}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '2px 8px' }}>
+            <span style={{ color: '#cbd5e1' }}>Total subs</span>
+            <span style={{ fontWeight: 800, textAlign: 'right' }}>{fmtNum(hovered.total)}</span>
+            <span style={{ color: '#cbd5e1' }}>vs start</span>
+            <span style={{ fontWeight: 700, textAlign: 'right', color: hoveredDelta >= 0 ? '#86efac' : '#fca5a5' }}>
+              {fmtSigned(hoveredDelta)}
+            </span>
+          </div>
+          {hoveredTopChannels.length > 0 && (
+            <div style={{ marginTop: 8, paddingTop: 6, borderTop: '1px solid #334155' }}>
+              <div style={{ color: '#94a3b8', fontSize: 9, fontWeight: 700, letterSpacing: '0.04em', marginBottom: 3 }}>
+                TOP CHANNELS (by subs)
+              </div>
+              {hoveredTopChannels.map(([ch, total]) => (
+                <div key={ch} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: 10 }}>
+                  <span style={{ color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {subjects[ch] || ch}
+                  </span>
+                  <span style={{ color: '#cbd5e1', fontWeight: 700 }}>{fmtNum(total)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, lineHeight: 1.5, textAlign: 'center' }}>
+        Move mouse across chart for daily detail · Data: Telegram broadcast stats (growthGraph)
       </div>
     </div>
   );
