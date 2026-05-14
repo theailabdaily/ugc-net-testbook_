@@ -400,6 +400,8 @@ export default function ContentCalendarSection({ channels = [] }) {
         </div>
       )}
 
+      <StatusSummary posts={filteredPosts} />
+
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 240px', gap: 12 }}>
         <div style={{ background: 'white', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', minWidth: 0 }}>
           {view === 'month' && <MonthView cursor={cursor} posts={filteredPosts} onEventClick={setEditPost} onSlotClick={newPostAt} />}
@@ -849,52 +851,127 @@ function Fragment({ children }) { return <>{children}</>; }
 
 // ─────────────────────────── Event chip ───────────────────────────
 function EventChip({ post, compact, expanded, onClick }) {
-  const color  = POST_TYPE_COLORS[post.post_type] || POST_TYPE_COLORS.Message;
+  const typeColor = POST_TYPE_COLORS[post.post_type] || POST_TYPE_COLORS.Message;
   const subj   = getSubject(post.chat_username);
   const time   = fmtTime(new Date(post.scheduled_at));
-  const status = STATUS_BADGE[post.status] || STATUS_BADGE.scheduled;
-  const isPosted = post.status === 'posted';
-  const isFailed = post.status === 'failed';
+  const isPosted    = post.status === 'posted';
+  const isFailed    = post.status === 'failed';
+  const isPosting   = post.status === 'posting';
+  const isCancelled = post.status === 'cancelled';
+  const isScheduled = post.status === 'scheduled' || !post.status;
 
-  const opacity = (post.status === 'cancelled') ? 0.4 : 1;
+  // Status visual: background tint, border color, badge label
+  let bgTint, borderColor, statusLabel, statusEmoji, statusBg, statusFg;
+  if (isPosted)         { bgTint = '#f0fdf4'; borderColor = '#22c55e'; statusLabel = 'Posted';     statusEmoji = '✓'; statusBg = '#dcfce7'; statusFg = '#15803d'; }
+  else if (isFailed)    { bgTint = '#fef2f2'; borderColor = '#dc2626'; statusLabel = 'Failed';     statusEmoji = '⚠'; statusBg = '#fee2e2'; statusFg = '#991b1b'; }
+  else if (isPosting)   { bgTint = '#fffbeb'; borderColor = '#f59e0b'; statusLabel = 'Posting…';   statusEmoji = '⏳'; statusBg = '#fef3c7'; statusFg = '#92400e'; }
+  else if (isCancelled) { bgTint = '#f8fafc'; borderColor = '#94a3b8'; statusLabel = 'Cancelled';  statusEmoji = '✕'; statusBg = '#f1f5f9'; statusFg = '#475569'; }
+  else                  { bgTint = typeColor.bg; borderColor = typeColor.border; statusLabel = 'Scheduled'; statusEmoji = '⏰'; statusBg = '#dbeafe'; statusFg = '#1e40af'; }
+
+  const opacity = isCancelled ? 0.45 : 1;
   const decoration = isPosted ? 'line-through' : 'none';
 
   return (
     <div
       onClick={(e) => { e.stopPropagation(); onClick && onClick(); }}
-      title={`${time} · ${subj} · ${post.post_type}\n${(post.content || post.quiz_question || '').slice(0, 120)}`}
+      title={`${time} · ${subj} · ${post.post_type} · ${statusLabel}\n${(post.content || post.quiz_question || '').slice(0, 120)}`}
       style={{
-        background: color.bg, color: color.text,
-        borderLeft: `3px solid ${color.border}`,
-        padding: compact ? '2px 6px' : (expanded ? '6px 10px' : '3px 6px'),
+        background: bgTint, color: typeColor.text,
+        borderLeft: `3px solid ${borderColor}`,
+        border: isFailed ? `1px solid ${borderColor}` : `1px solid ${borderColor}33`,
+        borderLeftWidth: 3,
+        padding: compact ? '2px 5px' : (expanded ? '8px 10px' : '3px 6px'),
         borderRadius: 4,
         fontSize: compact ? 10 : 11,
         cursor: 'pointer',
         overflow: 'hidden',
-        whiteSpace: compact ? 'nowrap' : 'normal',
-        textOverflow: 'ellipsis',
         opacity,
-        textDecoration: decoration,
         position: 'relative',
+        display: 'flex', flexDirection: 'column', gap: 2,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <span>{time}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, minWidth: 0 }}>
+        <span style={{ whiteSpace: 'nowrap', textDecoration: decoration }}>{time}</span>
         {post.should_pin && <span title="Will be pinned" style={{ fontSize: 9 }}>📌</span>}
-        {isFailed && <span title="Posting failed" style={{ fontSize: 9 }}>⚠️</span>}
-        {isPosted && <span title="Already posted" style={{ fontSize: 9 }}>✓</span>}
-        {!compact && <span style={{ marginLeft: 'auto', fontSize: 9, opacity: 0.8 }}>{post.post_type}</span>}
+        <span style={{
+          background: statusBg, color: statusFg,
+          padding: compact ? '0px 4px' : '1px 6px',
+          borderRadius: 8, fontSize: compact ? 8 : 9, fontWeight: 700, letterSpacing: '0.02em',
+          marginLeft: 'auto', whiteSpace: 'nowrap',
+        }}>
+          {statusEmoji} {compact ? '' : statusLabel}
+        </span>
       </div>
       {!compact && (
-        <div style={{ fontSize: compact ? 9 : 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
-          {subj}
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4, fontSize: 10, color: '#475569' }}>
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>
+            {subj}
+          </span>
+          <span style={{ fontSize: 9, opacity: 0.7, whiteSpace: 'nowrap' }}>{post.post_type}</span>
         </div>
       )}
       {expanded && (post.content || post.quiz_question) && (
-        <div style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4, color: '#0f172a', whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden' }}>
+        <div style={{ fontSize: 11, marginTop: 4, lineHeight: 1.4, color: '#0f172a', whiteSpace: 'pre-wrap', maxHeight: 80, overflow: 'hidden', textDecoration: decoration }}>
           {(post.content || post.quiz_question || '').slice(0, 200)}
         </div>
       )}
+      {expanded && isFailed && post.error_message && (
+        <div style={{ fontSize: 10, marginTop: 4, padding: '4px 6px', background: '#fee2e2', color: '#991b1b', borderRadius: 4 }}>
+          ⚠ {post.error_message} {post.retry_count ? `(${post.retry_count} retries)` : ''}
+        </div>
+      )}
+      {expanded && isPosted && post.telegram_message_id && (
+        <a
+          href={`https://t.me/${post.chat_username}/${post.telegram_message_id}`}
+          target="_blank" rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          style={{ fontSize: 10, marginTop: 4, color: '#15803d', textDecoration: 'underline', display: 'inline-block' }}
+        >
+          View on Telegram ↗
+        </a>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────── Status summary bar (shown above calendar) ───────────────────────────
+function StatusSummary({ posts }) {
+  const counts = useMemo(() => {
+    const c = { scheduled: 0, posting: 0, posted: 0, failed: 0, cancelled: 0 };
+    for (const p of posts) {
+      const s = p.status || 'scheduled';
+      if (c[s] !== undefined) c[s] += 1;
+    }
+    return c;
+  }, [posts]);
+
+  const total = counts.scheduled + counts.posting + counts.posted + counts.failed + counts.cancelled;
+  if (total === 0) return null;
+
+  const item = (emoji, label, n, bg, fg) => n > 0 && (
+    <span style={{
+      background: bg, color: fg,
+      padding: '4px 10px', borderRadius: 12,
+      fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+    }}>
+      {emoji} {n} {label}
+    </span>
+  );
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+      padding: '8px 12px', background: 'white', border: '1px solid #e2e8f0',
+      borderRadius: 10, marginBottom: 12,
+    }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        In this view:
+      </span>
+      {item('⏰', 'scheduled', counts.scheduled, '#dbeafe', '#1e40af')}
+      {item('⏳', 'posting',   counts.posting,   '#fef3c7', '#92400e')}
+      {item('✓',  'posted',    counts.posted,    '#dcfce7', '#15803d')}
+      {item('⚠',  'failed',    counts.failed,    '#fee2e2', '#991b1b')}
+      {item('✕',  'cancelled', counts.cancelled, '#f1f5f9', '#475569')}
     </div>
   );
 }
