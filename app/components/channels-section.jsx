@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import DateRangePicker, { PRESETS } from './date-range-picker';
 import SubjectMultiSelect, { applySubjectFilter } from './subject-multiselect';
+import { fetchWithRetry } from '../lib/fetch-with-retry';
 
 // ─────────────────────────── helpers ───────────────────────────
 const SUBJECTS = {
@@ -149,11 +150,22 @@ export default function ChannelsSection() {
   const [insightsError, setInsightsError]     = useState(null);
   const [insightsCollapsed, setInsightsCollapsed] = useState(false);
 
+  const [retryStatus, setRetryStatus] = useState(null);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(`/api/channel-metrics?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`)
+    setRetryStatus(null);
+    fetchWithRetry(
+      `/api/channel-metrics?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`,
+      {},
+      {
+        onRetry: ({ attempt, status }) => {
+          if (!cancelled) setRetryStatus(`Server warming up (attempt ${attempt + 1})…`);
+        },
+      },
+    )
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
@@ -161,7 +173,7 @@ export default function ChannelsSection() {
         else       { setData(d); setError(null); }
       })
       .catch((e) => { if (!cancelled) setError(e.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => { if (!cancelled) { setLoading(false); setRetryStatus(null); } });
     return () => { cancelled = true; };
   }, [range.from, range.to]);
 
@@ -173,7 +185,7 @@ export default function ChannelsSection() {
     setInsightsLoading(true);
     setInsightsError(null);
     try {
-      const res  = await fetch('/api/channel-insights', {
+      const res  = await fetchWithRetry('/api/channel-insights', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ channels: data.channels, range }),
@@ -298,8 +310,8 @@ export default function ChannelsSection() {
             onChange={setFilterSubjects}
             label="Subjects"
           />
-          <div style={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
-            {loading ? 'Loading…' : `${filtered.length} channels`}
+          <div style={{ fontSize: 12, color: retryStatus ? '#b45309' : '#64748b', whiteSpace: 'nowrap' }}>
+            {retryStatus || (loading ? 'Loading…' : `${filtered.length} channels`)}
           </div>
         </div>
       </div>
