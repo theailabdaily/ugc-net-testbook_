@@ -33,6 +33,12 @@ const SUBJECTS = {
 
 const POST_TYPES = ['Message', 'MCQ', 'YouTube Class', 'PDF Notes', 'Voice Note', 'PYQ Discussion', 'Current Affairs', 'Promotional'];
 
+// Case-insensitive subject lookup — channel usernames may arrive in mixed case
+function getSubject(username) {
+  if (!username) return '';
+  return SUBJECTS[username] || SUBJECTS[username.toLowerCase()] || username;
+}
+
 const POST_TYPE_COLORS = {
   'MCQ':             { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' },
   'YouTube Class':   { bg: '#fee2e2', text: '#991b1b', border: '#dc2626' },
@@ -143,7 +149,8 @@ export default function ContentCalendarSection({ channels = [] }) {
   // ─── Filter ───
   const filteredPosts = useMemo(() => {
     if (checkedChannels.size === 0) return posts;  // no filter = show all
-    return posts.filter((p) => checkedChannels.has(p.chat_username));
+    // Both sides lowercased; DB stores chat_username lowercase
+    return posts.filter((p) => checkedChannels.has((p.chat_username || '').toLowerCase()));
   }, [posts, checkedChannels]);
 
   // ─── Navigation ───
@@ -184,7 +191,7 @@ export default function ContentCalendarSection({ channels = [] }) {
           action: 'generate',
           channelUsername: ch.username,
           channelTitle:    ch.title || ch.subject,
-          subject:         ch.subject || SUBJECTS[ch.username] || 'UGC NET',
+          subject:         ch.subject || getSubject(ch.username) || 'UGC NET',
           contentTypes:    ch.contentTypes || [],
           subscribers:     ch.subs,
           bestHours:       ch.bestHours || [],
@@ -529,8 +536,8 @@ function ChannelSidebar({ channels, checked, setChecked }) {
   const [search, setSearch] = useState('');
   const sortedChannels = useMemo(() => {
     return [...channels].sort((a, b) => {
-      const sa = SUBJECTS[a.username] || a.username;
-      const sb = SUBJECTS[b.username] || b.username;
+      const sa = getSubject(a.username);
+      const sb = getSubject(b.username);
       return sa.localeCompare(sb);
     });
   }, [channels]);
@@ -538,19 +545,20 @@ function ChannelSidebar({ channels, checked, setChecked }) {
     const q = search.toLowerCase();
     if (!q) return sortedChannels;
     return sortedChannels.filter((c) => {
-      const subj = (SUBJECTS[c.username] || c.username).toLowerCase();
+      const subj = (getSubject(c.username)).toLowerCase();
       return subj.includes(q) || c.username.toLowerCase().includes(q);
     });
   }, [sortedChannels, search]);
 
   const toggle = (username) => {
+    const key = (username || '').toLowerCase();
     setChecked((prev) => {
       const next = new Set(prev);
-      if (next.has(username)) next.delete(username); else next.add(username);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
-  const selectAll = () => setChecked(new Set(sortedChannels.map((c) => c.username)));
+  const selectAll = () => setChecked(new Set(sortedChannels.map((c) => (c.username || '').toLowerCase())));
   const clearAll  = () => setChecked(new Set());
 
   return (
@@ -578,8 +586,8 @@ function ChannelSidebar({ channels, checked, setChecked }) {
 
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {filtered.map((c) => {
-          const isChecked = checked.has(c.username);
-          const subj = SUBJECTS[c.username] || c.username;
+          const isChecked = checked.has((c.username || '').toLowerCase());
+          const subj = getSubject(c.username);
           return (
             <label
               key={c.username}
@@ -842,7 +850,7 @@ function Fragment({ children }) { return <>{children}</>; }
 // ─────────────────────────── Event chip ───────────────────────────
 function EventChip({ post, compact, expanded, onClick }) {
   const color  = POST_TYPE_COLORS[post.post_type] || POST_TYPE_COLORS.Message;
-  const subj   = SUBJECTS[post.chat_username] || post.chat_username;
+  const subj   = getSubject(post.chat_username);
   const time   = fmtTime(new Date(post.scheduled_at));
   const status = STATUS_BADGE[post.status] || STATUS_BADGE.scheduled;
   const isPosted = post.status === 'posted';
@@ -935,7 +943,7 @@ function PostModal({ post, channels, onSave, onClose, onDelete, onPostNow, onPin
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 6, background: '#f8fafc', maxHeight: 90, overflowY: 'auto' }}>
                 {draft.multiChannels.map((ch) => (
                   <span key={ch} style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 600 }}>
-                    {SUBJECTS[ch] || ch}
+                    {getSubject(ch)}
                   </span>
                 ))}
               </div>
@@ -954,7 +962,7 @@ function PostModal({ post, channels, onSave, onClose, onDelete, onPostNow, onPin
                 <option value="">Select channel…</option>
                 {channels.map((c) => (
                   <option key={c.username} value={c.username}>
-                    {SUBJECTS[c.username] || c.username} · @{c.username}
+                    {getSubject(c.username)} · @{c.username}
                   </option>
                 ))}
               </select>
