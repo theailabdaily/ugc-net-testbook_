@@ -1685,8 +1685,46 @@ function IntegrationsSection() {
 }
 
 // ── Root dashboard ──────────────────────────────────────────────────────────
-export default function Dashboard() {
-  const [section,   setSection]   = useState('overview');
+
+// Valid slugs (mirror of NAV item ids). Used to validate URL on load + click.
+const VALID_SLUGS = new Set(['overview','channels','competitive','insights','calendar','youtube','masterclass','promotions','automation','integrations']);
+
+function readSlugFromPath() {
+  if (typeof window === 'undefined') return 'overview';
+  const seg = (window.location.pathname || '/').split('/').filter(Boolean)[0] || '';
+  return VALID_SLUGS.has(seg) ? seg : 'overview';
+}
+
+export default function Dashboard({ initialSection } = {}) {
+  // Server-render with the slug from the URL ([section]/page.jsx passes it in).
+  // Falls back to 'overview' for the root '/' redirect case.
+  const startSection = initialSection && VALID_SLUGS.has(initialSection) ? initialSection : 'overview';
+  const [section,   setSection]   = useState(startSection);
+
+  // Sync URL path ⇄ section state. After mount, listen for browser back/forward.
+  useEffect(() => {
+    // Sync from URL on mount in case the client URL has diverged (e.g. user typed it)
+    const fromPath = readSlugFromPath();
+    if (fromPath !== section) setSection(fromPath);
+    const onPopState = () => setSection(readSlugFromPath());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sidebar click → update state + URL. Uses pushState for back-button support
+  // (shallow nav — no Next.js re-render, no data refetch).
+  const navigate = useCallback((slug) => {
+    if (!VALID_SLUGS.has(slug)) return;
+    setSection(slug);
+    if (typeof window !== 'undefined') {
+      const nextPath = `/${slug}`;
+      if (window.location.pathname !== nextPath) {
+        window.history.pushState(null, '', nextPath);
+      }
+    }
+  }, []);
+
   const [liveData,  setLiveData]  = useState(null);
   const [loading,   setLoading]   = useState(true);
   const [lastFetched, setLastFetched] = useState(null);
@@ -1765,7 +1803,7 @@ export default function Dashboard() {
   return (
     <div style={{ display:'flex',minHeight:'100vh',background:'#f1f5f9',fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif' }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} * { box-sizing: border-box; }`}</style>
-      <Sidebar active={section} onNav={setSection} totalSubs={totalSubs} lastFetched={lastFetched} />
+      <Sidebar active={section} onNav={navigate} totalSubs={totalSubs} lastFetched={lastFetched} />
       <main style={{ flex:1,padding:'28px 32px',overflowY:'auto',minWidth:0 }}>
         {section==='overview'    && <OverviewSectionV2 />}
         {section==='channels'    && <ChannelsSectionV2 />}
