@@ -64,10 +64,14 @@ export async function GET() {
 
     // Build per-faculty channel list
     const mapByFaculty = {};
+    const mapByChannel = {};
     for (const m of (mappings || [])) {
       if (!m.faculty_email) continue;
       if (!mapByFaculty[m.faculty_email]) mapByFaculty[m.faculty_email] = [];
       mapByFaculty[m.faculty_email].push(m);
+
+      if (!mapByChannel[m.chat_username]) mapByChannel[m.chat_username] = [];
+      mapByChannel[m.chat_username].push(m);
     }
 
     const facultyRows = (faculty || []).map((f) => ({
@@ -76,7 +80,15 @@ export async function GET() {
         chat_username: m.chat_username,
         subject:       m.subject,
         assigned_at:   m.assigned_at,
+        // For each of this faculty's channels, list any OTHER faculty also assigned (M:N awareness)
+        co_faculty:    (mapByChannel[m.chat_username] || []).filter((x) => x.faculty_email !== f.email).map((x) => x.faculty_email),
       })),
+    }));
+
+    // Per-channel view (handy for Phase 2 + UI badges)
+    const channelsView = ALL_CHANNELS.map((c) => ({
+      ...c,
+      faculty: (mapByChannel[c.username] || []).map((m) => ({ email: m.faculty_email, subject: m.subject })),
     }));
 
     // Unassigned channels = all_channels − channels in mapping with faculty_email set
@@ -86,12 +98,15 @@ export async function GET() {
     return Response.json({
       ok: true,
       faculty:    facultyRows,
+      channels:   channelsView,
       unassigned: unassignedChannels,
       meta: {
-        total_faculty: facultyRows.length,
-        total_channels: ALL_CHANNELS.length,
-        assigned_channels: assignedUsernames.size,
-        unassigned_channels: unassignedChannels.length,
+        total_faculty:        facultyRows.length,
+        total_channels:       ALL_CHANNELS.length,
+        assigned_channels:    assignedUsernames.size,
+        unassigned_channels:  unassignedChannels.length,
+        multi_faculty_channels: channelsView.filter((c) => c.faculty.length > 1).length,
+        total_mappings:       (mappings || []).length,
       },
     });
   } catch (e) {
@@ -109,19 +124,19 @@ export async function POST(request) {
     const faculty_email = body.faculty_email ? body.faculty_email.toLowerCase().trim() : null;
     const subject       = body.subject || null;
     if (!chat_username) return Response.json({ ok: false, error: 'chat_username required' }, { status: 400 });
+    if (!faculty_email) return Response.json({ ok: false, error: 'faculty_email required (use DELETE to remove)' }, { status: 400 });
 
     // Validate channel exists in our canonical list
     if (!ALL_CHANNELS.find((c) => c.username.toLowerCase() === chat_username)) {
       return Response.json({ ok: false, error: 'unknown channel' }, { status: 400 });
     }
 
-    // If faculty_email provided, validate it exists in faculty table
-    if (faculty_email) {
-      const { data: f, error: fErr } = await sb.from('tg_faculty').select('email').eq('email', faculty_email).maybeSingle();
-      if (fErr) throw new Error('faculty lookup: ' + fErr.message);
-      if (!f) return Response.json({ ok: false, error: 'faculty email not in registry' }, { status: 400 });
-    }
+    // Validate faculty exists in registry
+    const { data: f, error: fErr } = await sb.from('tg_faculty').select('email').eq('email', faculty_email).maybeSingle();
+    if (fErr) throw new Error('faculty lookup: ' + fErr.message);
+    if (!f) return Response.json({ ok: false, error: 'faculty email not in registry' }, { status: 400 });
 
+    // Upsert on composite (chat_username, faculty_email) — adds if new, updates subject if exists
     const { data, error: upErr } = await sb
       .from('tg_channel_faculty_map')
       .upsert({
@@ -130,7 +145,7 @@ export async function POST(request) {
         subject: subject || ALL_CHANNELS.find((c) => c.username.toLowerCase() === chat_username)?.subject || null,
         assigned_by: 'ui',
         assigned_at: new Date().toISOString(),
-      }, { onConflict: 'chat_username' })
+      }, { onConflict: 'chat_username,faculty_email' })
       .select()
       .single();
 
@@ -138,6 +153,44 @@ export async function POST(request) {
     return Response.json({ ok: true, mapping: data });
   } catch (e) {
     console.error('[faculty POST]', e.message);
+    return Response.json({ ok: false, error: e.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(request) {
+  if (!sb) return Response.json({ ok: false, error: 'supabase_not_configured' }, { status: 500 });
+
+  try {
+    // Support both JSON body and query params for flexibility
+    let chat_username, faculty_email;
+    const url = new URL(request.url);
+    chat_username = url.searchParams.get('chat_username');
+    faculty_email = url.searchParams.get('faculty_email');
+    if (!chat_username || !faculty_email) {
+      // try body
+      try {
+        const body = await request.json();
+        chat_username = chat_username || body.chat_username;
+        faculty_email = faculty_email || body.faculty_email;
+      } catch { /* no body, that's ok */ }
+    }
+    chat_username = (chat_username || '').toLowerCase().trim();
+    faculty_email = (faculty_email || '').toLowerCase().trim();
+
+    if (!chat_username || !faculty_email) {
+      return Response.json({ ok: false, error: 'chat_username and faculty_email both required' }, { status: 400 });
+    }
+
+    const { error: delErr, count } = await sb
+      .from('tg_channel_faculty_map')
+      .delete({ count: 'exact' })
+      .eq('chat_username', chat_username)
+      .eq('faculty_email', faculty_email);
+
+    if (delErr) throw new Error('delete: ' + delErr.message);
+    return Response.json({ ok: true, removed: count || 0 });
+  } catch (e) {
+    console.error('[faculty DELETE]', e.message);
     return Response.json({ ok: false, error: e.message }, { status: 500 });
   }
 }
