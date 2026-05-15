@@ -4,6 +4,7 @@ import ChannelsSectionV2 from './channels-section';
 import OverviewSectionV2 from './overview-section';
 import ContentCalendarSectionV2 from './content-calendar-section';
 import CompetitiveSectionV2 from './competitive-section';
+import FacultySection from './faculty-section';
 
 // ── Snapshot storage key ────────────────────────────────────────────────────
 const SNAPSHOT_KEY = 'tg_sub_snapshots_v1';
@@ -159,6 +160,7 @@ function MiniDualChart({ history, color = '#2563eb' }) {
 const NAV = [
   {id:'overview',   icon:'📊', label:'Overview'},
   {id:'channels',   icon:'📢', label:'Channels'},
+  {id:'faculty',    icon:'👥', label:'Faculty'},
   {id:'competitive',icon:'⚔️', label:'Competitive'},
   {id:'insights',   icon:'💡', label:'Growth Insights'},
   {id:'calendar',   icon:'📅', label:'Content Calendar'},
@@ -1687,7 +1689,7 @@ function IntegrationsSection() {
 // ── Root dashboard ──────────────────────────────────────────────────────────
 
 // Valid slugs (mirror of NAV item ids). Used to validate URL on load + click.
-const VALID_SLUGS = new Set(['overview','channels','competitive','insights','calendar','youtube','masterclass','promotions','automation','integrations']);
+const VALID_SLUGS = new Set(['overview','channels','faculty','competitive','insights','calendar','youtube','masterclass','promotions','automation','integrations']);
 
 function readSlugFromPath() {
   if (typeof window === 'undefined') return 'overview';
@@ -1807,6 +1809,7 @@ export default function Dashboard({ initialSection } = {}) {
       <main style={{ flex:1,padding:'28px 32px',overflowY:'auto',minWidth:0 }}>
         {section==='overview'    && <OverviewSectionV2 />}
         {section==='channels'    && <ChannelsSectionV2 />}
+        {section==='faculty'     && <FacultySection />}
         {section==='competitive' && <CompetitiveSectionV2 />}
         {section==='insights'    && <InsightsSection     channels={channels} competitorData={compData} selectedDate={selDate} />}
         {section==='calendar'    && <ContentCalendarSectionV2 channels={channels} />}
